@@ -11,11 +11,11 @@ import {
   TextInput,
   View,
 } from "react-native";
-import MapView, { LongPressEvent, Marker, PROVIDER_GOOGLE } from "react-native-maps";
 import * as Location from "expo-location";
+import SpotMap from "../components/SpotMap";
 import { CATEGORIES, SAMPLE_SPOTS, categoryOf } from "../data/spots";
 import { getJSON, setJSON, KEYS } from "../lib/storage";
-import { colors, priceColor } from "../theme";
+import { colors } from "../theme";
 import { CategoryId, Spot, VoteMap } from "../types";
 
 const PRICE_PRESETS = [
@@ -24,12 +24,7 @@ const PRICE_PRESETS = [
   { label: "〜1000円", value: 1000 },
 ];
 
-const INITIAL_REGION = {
-  latitude: 35.6895,
-  longitude: 139.7005,
-  latitudeDelta: 0.08,
-  longitudeDelta: 0.08,
-};
+const POST_HINT = Platform.OS === "web" ? "右クリックでお店を投稿" : "長押しでお店を投稿";
 
 export default function MapScreen() {
   const [maxPrice, setMaxPrice] = useState(800);
@@ -44,7 +39,7 @@ export default function MapScreen() {
   useEffect(() => {
     getJSON<Spot[]>(KEYS.userSpots, []).then(setUserSpots);
     getJSON<VoteMap>(KEYS.votes, {}).then(setVotes);
-    void Location.requestForegroundPermissionsAsync();
+    if (Platform.OS !== "web") void Location.requestForegroundPermissionsAsync();
   }, []);
 
   const spots = useMemo(() => SAMPLE_SPOTS.concat(userSpots), [userSpots]);
@@ -76,12 +71,6 @@ export default function MapScreen() {
     });
   }
 
-  function handleLongPress(e: LongPressEvent) {
-    const { latitude, longitude } = e.nativeEvent.coordinate;
-    setSelected(null);
-    setPendingCoord({ lat: latitude, lng: longitude });
-  }
-
   async function addSpot(spot: Spot) {
     const next = [...userSpots, spot];
     setUserSpots(next);
@@ -93,28 +82,15 @@ export default function MapScreen() {
 
   return (
     <View style={styles.container}>
-      <MapView
-        style={StyleSheet.absoluteFill}
-        provider={PROVIDER_GOOGLE}
-        initialRegion={INITIAL_REGION}
-        showsUserLocation
-        onLongPress={handleLongPress}
-        onPress={() => setSelected(null)}
-      >
-        {visibleSpots.map((spot) => (
-          <Marker
-            key={spot.id}
-            coordinate={{ latitude: spot.lat, longitude: spot.lng }}
-            tracksViewChanges={false}
-            onPress={(e) => {
-              e.stopPropagation();
-              setSelected(spot);
-            }}
-          >
-            <SpotIcon spot={spot} />
-          </Marker>
-        ))}
-      </MapView>
+      <SpotMap
+        spots={visibleSpots}
+        onSelectSpot={setSelected}
+        onPickLocation={(coord) => {
+          setSelected(null);
+          setPendingCoord(coord);
+        }}
+        onMapPress={() => setSelected(null)}
+      />
 
       {/* フィルタ(上部チップ) */}
       <View style={styles.filterBar}>
@@ -140,7 +116,9 @@ export default function MapScreen() {
       </View>
 
       <View style={styles.hintBadge}>
-        <Text style={styles.hintText}>長押しでお店を投稿 ・ 表示中 {visibleSpots.length}件</Text>
+        <Text style={styles.hintText}>
+          {POST_HINT} ・ 表示中 {visibleSpots.length}件
+        </Text>
       </View>
 
       {/* スポット詳細カード */}
@@ -170,20 +148,6 @@ export default function MapScreen() {
       )}
 
       <AddSpotModal coord={pendingCoord} onClose={() => setPendingCoord(null)} onSubmit={addSpot} />
-    </View>
-  );
-}
-
-function SpotIcon({ spot }: { spot: Spot }) {
-  const cat = categoryOf(spot.category);
-  return (
-    <View style={styles.markerWrap}>
-      <View style={[styles.markerBubble, { borderColor: priceColor(spot.price) }]}>
-        <Text style={styles.markerEmoji}>{cat?.emoji ?? "📍"}</Text>
-      </View>
-      <View style={[styles.markerPrice, { backgroundColor: priceColor(spot.price) }]}>
-        <Text style={styles.markerPriceText}>{spot.price === 0 ? "無料" : `¥${spot.price}`}</Text>
-      </View>
     </View>
   );
 }
@@ -227,18 +191,23 @@ function AddSpotModal({
     }
   }, [coord]);
 
+  function warn(message: string) {
+    if (Platform.OS === "web") window.alert(message);
+    else Alert.alert(message);
+  }
+
   function submit() {
     const priceNum = Number(price);
     if (!name.trim()) {
-      Alert.alert("店名を入力してください");
+      warn("店名を入力してください");
       return;
     }
     if (!Number.isFinite(priceNum) || priceNum < 0 || price.trim() === "") {
-      Alert.alert("価格を数字で入力してください(無料なら0)");
+      warn("価格を数字で入力してください(無料なら0)");
       return;
     }
     if (priceNum > 1000) {
-      Alert.alert("1000円以下のスポットのみ投稿できます");
+      warn("1000円以下のスポットのみ投稿できます");
       return;
     }
     if (!coord) return;
@@ -273,12 +242,13 @@ function AddSpotModal({
           />
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.modalChips}>
             {CATEGORIES.map((c) => (
-              <Chip
-                key={c.id}
-                label={`${c.emoji} ${c.label}`}
-                active={category === c.id}
-                onPress={() => setCategory(c.id)}
-              />
+              <View key={c.id} style={styles.modalChipSpacer}>
+                <Chip
+                  label={`${c.emoji} ${c.label}`}
+                  active={category === c.id}
+                  onPress={() => setCategory(c.id)}
+                />
+              </View>
             ))}
           </ScrollView>
           <TextInput
@@ -315,7 +285,7 @@ function AddSpotModal({
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
-  filterBar: { position: "absolute", top: 8, left: 0, right: 0 },
+  filterBar: { position: "absolute", top: 8, left: 0, right: 0, zIndex: 1000 },
   chipRow: { paddingHorizontal: 10, gap: 6, alignItems: "center" },
   chipDivider: { width: 1, height: 20, backgroundColor: colors.border, marginHorizontal: 4 },
   chip: {
@@ -337,21 +307,9 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingVertical: 4,
     paddingHorizontal: 12,
+    zIndex: 1000,
   },
   hintText: { color: "#fff", fontSize: 11 },
-  markerWrap: { alignItems: "center" },
-  markerBubble: {
-    backgroundColor: colors.surface,
-    borderRadius: 999,
-    borderWidth: 2,
-    width: 38,
-    height: 38,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  markerEmoji: { fontSize: 18 },
-  markerPrice: { borderRadius: 6, paddingHorizontal: 4, paddingVertical: 1, marginTop: 2 },
-  markerPriceText: { color: "#fff", fontSize: 10, fontWeight: "700" },
   detailCard: {
     position: "absolute",
     left: 12,
@@ -365,6 +323,7 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 4 },
     elevation: 6,
+    zIndex: 1000,
   },
   detailName: { fontSize: 16, fontWeight: "700", color: colors.text },
   detailMeta: { fontSize: 13, color: colors.textSub, marginTop: 2 },
@@ -392,9 +351,11 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 16,
     padding: 20,
     paddingBottom: 32,
+    ...(Platform.OS === "web" ? { maxWidth: 480, width: "100%", alignSelf: "center" as const } : null),
   },
   modalTitle: { fontSize: 16, fontWeight: "700", color: colors.text, marginBottom: 12 },
   modalChips: { marginBottom: 10, flexGrow: 0 },
+  modalChipSpacer: { marginRight: 6 },
   input: {
     borderWidth: 1,
     borderColor: colors.border,

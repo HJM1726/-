@@ -22,7 +22,7 @@ export function useTodaySteps(): { steps: number; status: StepsStatus } {
     let cancelled = false;
 
     (async () => {
-      const available = await Pedometer.isAvailableAsync();
+      const available = await Pedometer.isAvailableAsync().catch(() => false);
       if (!available) {
         if (!cancelled) setStatus("unavailable");
         return;

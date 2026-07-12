@@ -1,20 +1,29 @@
 # ビンボーマップ 모바일 앱
 
 Expo(React Native + TypeScript) 기반. 타겟은 외식비가 부담되는 일본 20대 대학생.
+**같은 코드가 iOS / Android / 웹 브라우저에서 모두 돌아갑니다.**
 
 ## 실행 방법 (개발)
 
 ```bash
 cd mobile
 npm install
-npx expo start
+npx expo start        # 폰(Expo Go)용 — QR코드 스캔
+npx expo start --web  # 웹 브라우저에서 바로 열기
 ```
 
 스마트폰에 **Expo Go** 앱을 설치하고 터미널의 QR코드를 스캔하면 실기기에서 바로 실행됩니다.
 
 - **Android + Expo Go**: 구글맵·만보기 모두 동작 (Expo Go 내장 키 사용)
 - **iOS + Expo Go**: 지도는 Apple 지도로 대체 표시됨. 구글맵을 iOS에서 쓰려면 development build 필요
+- **웹**: 지도는 Leaflet + OpenStreetMap으로 자동 대체(`SpotMap.web.tsx`). 투고는 지도 **우클릭**. 만보기는 브라우저에 센서가 없어 비활성 안내가 표시되고, 로그인 보너스·투표·투고는 전부 동작
 - **스토어 배포 시**: `app.json`의 `android.config.googleMaps.apiKey`에 [Google Cloud Console](https://console.cloud.google.com/)에서 발급한 Maps SDK for Android 키를 넣고 `eas build`로 빌드
+
+### 웹 정적 배포 (Vercel/Netlify/GitHub Pages)
+
+```bash
+npx expo export --platform web   # dist/ 생성 → 그대로 정적 호스팅에 업로드
+```
 
 ## 검증 명령
 
@@ -27,7 +36,9 @@ npm run typecheck   # tsc --noEmit
 
 ```
 App.tsx                     # 헤더(포인트 잔액) + 2탭 전환
-src/screens/MapScreen.tsx   # 구글맵, 아이콘 마커, 필터 칩, 투고 모달, 투표 카드
+src/screens/MapScreen.tsx   # 필터 칩, 투고 모달, 투표 카드 (지도 자체는 SpotMap에 위임)
+src/components/SpotMap.tsx      # 네이티브용 지도 (react-native-maps / 구글맵)
+src/components/SpotMap.web.tsx  # 웹용 지도 (Leaflet + OpenStreetMap)
 src/screens/WalkScreen.tsx  # 만보기: 오늘 걸음수, 포인트 수령, 로그인 보너스
 src/hooks/useSteps.ts       # expo-sensors Pedometer 래퍼 (iOS/Android 분기)
 src/lib/points.ts           # 포인트 규칙 (순수 함수, 테스트 대상)
