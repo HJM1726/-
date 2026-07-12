@@ -2,12 +2,27 @@ import { StatusBar } from "expo-status-bar";
 import React, { useState } from "react";
 import { Pressable, SafeAreaView, StyleSheet, Text, View } from "react-native";
 import { PointsProvider, usePoints } from "./src/context/PointsContext";
+import GiftScreen from "./src/screens/GiftScreen";
 import GuideScreen from "./src/screens/GuideScreen";
 import MapScreen from "./src/screens/MapScreen";
 import WalkScreen from "./src/screens/WalkScreen";
 import { colors } from "./src/theme";
 
-type Tab = "map" | "walk" | "guide";
+type Tab = "map" | "walk" | "guide" | "gift";
+
+const SCREENS: Record<Tab, React.ComponentType> = {
+  map: MapScreen,
+  walk: WalkScreen,
+  guide: GuideScreen,
+  gift: GiftScreen,
+};
+
+const TABS: { id: Tab; label: string }[] = [
+  { id: "map", label: "📍マップ" },
+  { id: "walk", label: "👟歩数" },
+  { id: "guide", label: "📚ガイド" },
+  { id: "gift", label: "🎁ギフト" },
+];
 
 export default function App() {
   return (
@@ -20,31 +35,25 @@ export default function App() {
 function Root() {
   const [tab, setTab] = useState<Tab>("map");
   const { balance } = usePoints();
+  const Screen = SCREENS[tab];
 
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar style="dark" />
       <View style={styles.body}>
-        {tab === "map" ? <MapScreen /> : tab === "walk" ? <WalkScreen /> : <GuideScreen />}
+        <Screen />
 
         {/* 참고앱풍のフローティング上部バー(マップの上に浮かせる) */}
         <View style={styles.topBar} pointerEvents="box-none">
           <View style={styles.segment}>
-            <SegmentButton
-              label="📍 マップ"
-              active={tab === "map"}
-              onPress={() => setTab("map")}
-            />
-            <SegmentButton
-              label="👟 歩数"
-              active={tab === "walk"}
-              onPress={() => setTab("walk")}
-            />
-            <SegmentButton
-              label="📚 ガイド"
-              active={tab === "guide"}
-              onPress={() => setTab("guide")}
-            />
+            {TABS.map((t) => (
+              <SegmentButton
+                key={t.id}
+                label={t.label}
+                active={tab === t.id}
+                onPress={() => setTab(t.id)}
+              />
+            ))}
           </View>
           <View style={styles.pointBadge}>
             <Text style={styles.pointBadgeText}>✨ {balance}</Text>
@@ -95,9 +104,9 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     elevation: 4,
   },
-  segmentBtn: { borderRadius: 999, paddingVertical: 8, paddingHorizontal: 10 },
+  segmentBtn: { borderRadius: 999, paddingVertical: 8, paddingHorizontal: 8 },
   segmentBtnActive: { backgroundColor: colors.dark },
-  segmentText: { fontSize: 13, color: colors.textSub, fontWeight: "600" },
+  segmentText: { fontSize: 12, color: colors.textSub, fontWeight: "600" },
   segmentTextActive: { color: "#fff", fontWeight: "800" },
   pointBadge: {
     backgroundColor: colors.surface,

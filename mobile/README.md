@@ -45,6 +45,8 @@ src/lib/spotUtils.ts        # SpotMap 공용 코드 (주의: .web.tsx에서 "./S
 src/screens/WalkScreen.tsx  # 만보기: 오늘 걸음수, 포인트 수령, 로그인 보너스
 src/screens/GuideScreen.tsx # 절약 가이드: 검색 + 카테고리 필터 + 기사 + 이해도 퀴즈(+5pt)
 src/data/guides.ts          # 교육 콘텐츠 10편 (일본어, 세금/연금/광열비/통신/주거/장학금)
+src/screens/GiftScreen.tsx  # 기프트권 마켓: 포인트 판매/물물교환, 출품, 코드 기재 차단
+src/data/gifts.ts           # 기프트 브랜드 8종 + 샘플 출품 (본번은 서버 + 에스크로 필수)
 src/hooks/useSteps.ts       # expo-sensors Pedometer 래퍼 (iOS/Android 분기)
 src/lib/points.ts           # 포인트 규칙 (순수 함수, 테스트 대상)
 src/lib/storage.ts          # AsyncStorage 래퍼

@@ -12,6 +12,8 @@ export const KEYS = {
   favorites: "binbomap.favorites",
   guideQuiz: "binbomap.guideQuiz",
   guideRead: "binbomap.guideRead",
+  giftListings: "binbomap.giftListings",
+  giftTrades: "binbomap.giftTrades",
 };
 
 export async function getJSON<T>(key: string, fallback: T): Promise<T> {
