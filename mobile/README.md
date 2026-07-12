@@ -36,9 +36,12 @@ npm run typecheck   # tsc --noEmit
 
 ```
 App.tsx                     # 헤더(포인트 잔액) + 2탭 전환
-src/screens/MapScreen.tsx   # 필터 칩, 투고 모달, 투표 카드 (지도 자체는 SpotMap에 위임)
-src/components/SpotMap.tsx      # 네이티브용 지도 (react-native-maps / 구글맵)
-src/components/SpotMap.web.tsx  # 웹용 지도 (Leaflet + OpenStreetMap)
+src/screens/MapScreen.tsx   # 필터 칩, 투고 모달, 즐겨찾기 필터, 싼 순 리스트, 현재위치
+src/components/SpotMap.tsx      # 네이티브용 지도 (react-native-maps / 구글맵) — 가격 pill 마커
+src/components/SpotMap.web.tsx  # 웹용 지도 (Leaflet + OpenStreetMap) — 동일 pill 마커
+src/components/SpotDetailSheet.tsx  # 가게 상세 바텀시트: 별점·댓글·즐겨찾기·외부지도 열기
+src/lib/spotUtils.ts        # SpotMap 공용 코드 (주의: .web.tsx에서 "./SpotMap" import는
+                            #   플랫폼 해석 때문에 자기 자신을 가리킴 → 공용 코드는 여기로)
 src/screens/WalkScreen.tsx  # 만보기: 오늘 걸음수, 포인트 수령, 로그인 보너스
 src/hooks/useSteps.ts       # expo-sensors Pedometer 래퍼 (iOS/Android 분기)
 src/lib/points.ts           # 포인트 규칙 (순수 함수, 테스트 대상)

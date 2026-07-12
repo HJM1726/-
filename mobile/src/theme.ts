@@ -12,6 +12,10 @@ export const colors = {
   mid: "#d99a2b",
   high: "#8a6d3b",
   point: "#2b7bd9",
+  dark: "#1c1b16", // 참고앱풍の黒ピルボタン/バッジ
+  gold: "#f5b301", // ✨ポイントアクセント
+  newBadge: "#e02d2d",
+  star: "#f5a623",
 };
 
 export function priceColor(price: number): string {

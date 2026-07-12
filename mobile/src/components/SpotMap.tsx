@@ -1,16 +1,13 @@
-import React from "react";
+import React, { forwardRef, useImperativeHandle, useRef } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import MapView, { LongPressEvent, Marker, PROVIDER_GOOGLE } from "react-native-maps";
+import * as Location from "expo-location";
 import { categoryOf } from "../data/spots";
+import { isNewSpot, SpotMapHandle, SpotMapProps } from "../lib/spotUtils";
 import { colors, priceColor } from "../theme";
 import { Spot } from "../types";
 
-export interface SpotMapProps {
-  spots: Spot[];
-  onSelectSpot: (spot: Spot) => void;
-  onPickLocation: (coord: { lat: number; lng: number }) => void;
-  onMapPress: () => void;
-}
+export type { SpotMapHandle, SpotMapProps };
 
 const INITIAL_REGION = {
   latitude: 35.6895,
@@ -19,7 +16,35 @@ const INITIAL_REGION = {
   longitudeDelta: 0.08,
 };
 
-export default function SpotMap({ spots, onSelectSpot, onPickLocation, onMapPress }: SpotMapProps) {
+const SpotMap = forwardRef<SpotMapHandle, SpotMapProps>(function SpotMap(
+  { spots, onSelectSpot, onPickLocation, onMapPress },
+  ref,
+) {
+  const mapRef = useRef<MapView>(null);
+
+  useImperativeHandle(ref, () => ({
+    focusSpot(spot: Spot) {
+      mapRef.current?.animateToRegion(
+        { latitude: spot.lat, longitude: spot.lng, latitudeDelta: 0.01, longitudeDelta: 0.01 },
+        400,
+      );
+    },
+    async locateMe() {
+      const perm = await Location.requestForegroundPermissionsAsync();
+      if (perm.status !== "granted") return;
+      const pos = await Location.getCurrentPositionAsync({});
+      mapRef.current?.animateToRegion(
+        {
+          latitude: pos.coords.latitude,
+          longitude: pos.coords.longitude,
+          latitudeDelta: 0.02,
+          longitudeDelta: 0.02,
+        },
+        400,
+      );
+    },
+  }));
+
   function handleLongPress(e: LongPressEvent) {
     const { latitude, longitude } = e.nativeEvent.coordinate;
     onPickLocation({ lat: latitude, lng: longitude });
@@ -27,6 +52,7 @@ export default function SpotMap({ spots, onSelectSpot, onPickLocation, onMapPres
 
   return (
     <MapView
+      ref={mapRef}
       style={StyleSheet.absoluteFill}
       provider={PROVIDER_GOOGLE}
       initialRegion={INITIAL_REGION}
@@ -38,45 +64,66 @@ export default function SpotMap({ spots, onSelectSpot, onPickLocation, onMapPres
         <Marker
           key={spot.id}
           coordinate={{ latitude: spot.lat, longitude: spot.lng }}
+          anchor={{ x: 0.5, y: 0.5 }}
           tracksViewChanges={false}
           onPress={(e) => {
             e.stopPropagation();
             onSelectSpot(spot);
           }}
         >
-          <SpotIcon spot={spot} />
+          <SpotPill spot={spot} />
         </Marker>
       ))}
     </MapView>
   );
-}
+});
 
-function SpotIcon({ spot }: { spot: Spot }) {
+export default SpotMap;
+
+/* 참고앱풍のピル型マーカー:絵文字 + 価格 + newバッジ */
+function SpotPill({ spot }: { spot: Spot }) {
   const cat = categoryOf(spot.category);
   return (
-    <View style={styles.markerWrap}>
-      <View style={[styles.markerBubble, { borderColor: priceColor(spot.price) }]}>
-        <Text style={styles.markerEmoji}>{cat?.emoji ?? "📍"}</Text>
-      </View>
-      <View style={[styles.markerPrice, { backgroundColor: priceColor(spot.price) }]}>
-        <Text style={styles.markerPriceText}>{spot.price === 0 ? "無料" : `¥${spot.price}`}</Text>
+    <View style={styles.pillWrap}>
+      {isNewSpot(spot) && (
+        <View style={styles.newBadge}>
+          <Text style={styles.newBadgeText}>new</Text>
+        </View>
+      )}
+      <View style={[styles.pill, { borderColor: priceColor(spot.price) }]}>
+        <Text style={styles.pillEmoji}>{cat?.emoji ?? "📍"}</Text>
+        <Text style={styles.pillPrice}>{spot.price === 0 ? "無料" : `¥${spot.price}`}</Text>
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  markerWrap: { alignItems: "center" },
-  markerBubble: {
-    backgroundColor: colors.surface,
-    borderRadius: 999,
-    borderWidth: 2,
-    width: 38,
-    height: 38,
+  pillWrap: { alignItems: "center" },
+  pill: {
+    flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
+    gap: 4,
+    backgroundColor: colors.surface,
+    borderWidth: 2,
+    borderRadius: 999,
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    shadowColor: "#000",
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 3,
   },
-  markerEmoji: { fontSize: 18 },
-  markerPrice: { borderRadius: 6, paddingHorizontal: 4, paddingVertical: 1, marginTop: 2 },
-  markerPriceText: { color: "#fff", fontSize: 10, fontWeight: "700" },
+  pillEmoji: { fontSize: 14 },
+  pillPrice: { fontSize: 12, fontWeight: "800", color: colors.text },
+  newBadge: {
+    backgroundColor: colors.newBadge,
+    borderRadius: 999,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    marginBottom: -6,
+    zIndex: 1,
+  },
+  newBadgeText: { color: "#fff", fontSize: 9, fontWeight: "800" },
 });

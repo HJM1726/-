@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   KeyboardAvoidingView,
@@ -11,12 +11,12 @@ import {
   TextInput,
   View,
 } from "react-native";
-import * as Location from "expo-location";
-import SpotMap from "../components/SpotMap";
+import SpotMap, { SpotMapHandle } from "../components/SpotMap";
+import SpotDetailSheet from "../components/SpotDetailSheet";
 import { CATEGORIES, SAMPLE_SPOTS, categoryOf } from "../data/spots";
 import { getJSON, setJSON, KEYS } from "../lib/storage";
-import { colors } from "../theme";
-import { CategoryId, Spot, VoteMap } from "../types";
+import { colors, priceColor } from "../theme";
+import { CategoryId, CommentMap, RatingMap, Spot, SpotComment, VoteDir, VoteMap } from "../types";
 
 const PRICE_PRESETS = [
   { label: "〜500円", value: 500 },
@@ -33,13 +33,21 @@ export default function MapScreen() {
   );
   const [userSpots, setUserSpots] = useState<Spot[]>([]);
   const [votes, setVotes] = useState<VoteMap>({});
+  const [ratings, setRatings] = useState<RatingMap>({});
+  const [comments, setComments] = useState<CommentMap>({});
+  const [favorites, setFavorites] = useState<string[]>([]);
+  const [favOnly, setFavOnly] = useState(false);
+  const [listOpen, setListOpen] = useState(false);
   const [selected, setSelected] = useState<Spot | null>(null);
   const [pendingCoord, setPendingCoord] = useState<{ lat: number; lng: number } | null>(null);
+  const mapRef = useRef<SpotMapHandle>(null);
 
   useEffect(() => {
     getJSON<Spot[]>(KEYS.userSpots, []).then(setUserSpots);
     getJSON<VoteMap>(KEYS.votes, {}).then(setVotes);
-    if (Platform.OS !== "web") void Location.requestForegroundPermissionsAsync();
+    getJSON<RatingMap>(KEYS.ratings, {}).then(setRatings);
+    getJSON<CommentMap>(KEYS.comments, {}).then(setComments);
+    getJSON<string[]>(KEYS.favorites, []).then(setFavorites);
   }, []);
 
   const spots = useMemo(() => SAMPLE_SPOTS.concat(userSpots), [userSpots]);
@@ -47,9 +55,12 @@ export default function MapScreen() {
   const visibleSpots = useMemo(
     () =>
       spots.filter(
-        (s) => (s.price === 0 || s.price <= maxPrice) && activeCategories.has(s.category),
+        (s) =>
+          (s.price === 0 || s.price <= maxPrice) &&
+          activeCategories.has(s.category) &&
+          (!favOnly || favorites.includes(s.id)),
       ),
-    [spots, maxPrice, activeCategories],
+    [spots, maxPrice, activeCategories, favOnly, favorites],
   );
 
   function toggleCategory(id: CategoryId) {
@@ -61,7 +72,7 @@ export default function MapScreen() {
     });
   }
 
-  function vote(spot: Spot, dir: "up" | "down") {
+  function vote(spot: Spot, dir: VoteDir) {
     setVotes((prev) => {
       const next: VoteMap = { ...prev };
       if (next[spot.id] === dir) delete next[spot.id];
@@ -71,18 +82,53 @@ export default function MapScreen() {
     });
   }
 
+  function rate(spot: Spot, stars: number) {
+    setRatings((prev) => {
+      const next: RatingMap = { ...prev };
+      if (next[spot.id] === stars) delete next[spot.id];
+      else next[spot.id] = stars;
+      void setJSON(KEYS.ratings, next);
+      return next;
+    });
+  }
+
+  function toggleFavorite(spot: Spot) {
+    setFavorites((prev) => {
+      const next = prev.includes(spot.id)
+        ? prev.filter((id) => id !== spot.id)
+        : [...prev, spot.id];
+      void setJSON(KEYS.favorites, next);
+      return next;
+    });
+  }
+
+  function addComment(spot: Spot, text: string) {
+    setComments((prev) => {
+      const entry: SpotComment = { id: "c" + Date.now(), text, at: Date.now() };
+      const next: CommentMap = { ...prev, [spot.id]: [entry, ...(prev[spot.id] ?? [])] };
+      void setJSON(KEYS.comments, next);
+      return next;
+    });
+  }
+
   async function addSpot(spot: Spot) {
     const next = [...userSpots, spot];
     setUserSpots(next);
     await setJSON(KEYS.userSpots, next);
     setPendingCoord(null);
+    mapRef.current?.focusSpot(spot);
   }
 
-  const myVote = selected ? votes[selected.id] : undefined;
+  function openFromList(spot: Spot) {
+    setListOpen(false);
+    setSelected(spot);
+    mapRef.current?.focusSpot(spot);
+  }
 
   return (
     <View style={styles.container}>
       <SpotMap
+        ref={mapRef}
         spots={visibleSpots}
         onSelectSpot={setSelected}
         onPickLocation={(coord) => {
@@ -92,7 +138,7 @@ export default function MapScreen() {
         onMapPress={() => setSelected(null)}
       />
 
-      {/* フィルタ(上部チップ) */}
+      {/* フィルタ(チップ列。上のフローティングバーの下) */}
       <View style={styles.filterBar}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
           {PRICE_PRESETS.map((p) => (
@@ -115,37 +161,50 @@ export default function MapScreen() {
         </ScrollView>
       </View>
 
+      {/* 右側の丸ボタン群(お気に入りフィルタ) */}
+      <View style={styles.sideButtons}>
+        <RoundButton
+          label={favOnly ? "❤️" : "🤍"}
+          active={favOnly}
+          onPress={() => setFavOnly((v) => !v)}
+        />
+      </View>
+
       <View style={styles.hintBadge}>
         <Text style={styles.hintText}>
           {POST_HINT} ・ 表示中 {visibleSpots.length}件
         </Text>
       </View>
 
-      {/* スポット詳細カード */}
+      {/* 左下:現在地 / 右下:リスト */}
+      <View style={styles.bottomLeft}>
+        <RoundButton label="🎯" onPress={() => void mapRef.current?.locateMe()} />
+      </View>
+      <View style={styles.bottomRight}>
+        <RoundButton label="📋" onPress={() => setListOpen(true)} />
+      </View>
+
       {selected && (
-        <View style={styles.detailCard}>
-          <Text style={styles.detailName}>{selected.name}</Text>
-          <Text style={styles.detailMeta}>
-            {categoryOf(selected.category)?.emoji} {categoryOf(selected.category)?.label} ・{" "}
-            <Text style={{ color: colors.primary, fontWeight: "700" }}>
-              {selected.price === 0 ? "無料" : `${selected.price}円`}
-            </Text>
-          </Text>
-          {selected.comment ? <Text style={styles.detailComment}>{selected.comment}</Text> : null}
-          <View style={styles.voteRow}>
-            <VoteButton
-              label={`👍 コスパ良い ${selected.up + (myVote === "up" ? 1 : 0)}`}
-              active={myVote === "up"}
-              onPress={() => vote(selected, "up")}
-            />
-            <VoteButton
-              label={`👎 微妙 ${selected.down + (myVote === "down" ? 1 : 0)}`}
-              active={myVote === "down"}
-              onPress={() => vote(selected, "down")}
-            />
-          </View>
-        </View>
+        <SpotDetailSheet
+          spot={selected}
+          myVote={votes[selected.id]}
+          onVote={(dir) => vote(selected, dir)}
+          myRating={ratings[selected.id]}
+          onRate={(stars) => rate(selected, stars)}
+          isFavorite={favorites.includes(selected.id)}
+          onToggleFavorite={() => toggleFavorite(selected)}
+          comments={comments[selected.id] ?? []}
+          onAddComment={(text) => addComment(selected, text)}
+          onClose={() => setSelected(null)}
+        />
       )}
+
+      <SpotListModal
+        visible={listOpen}
+        spots={visibleSpots}
+        onClose={() => setListOpen(false)}
+        onPick={openFromList}
+      />
 
       <AddSpotModal coord={pendingCoord} onClose={() => setPendingCoord(null)} onSubmit={addSpot} />
     </View>
@@ -160,11 +219,66 @@ function Chip({ label, active, onPress }: { label: string; active: boolean; onPr
   );
 }
 
-function VoteButton({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
+function RoundButton({
+  label,
+  active,
+  onPress,
+}: {
+  label: string;
+  active?: boolean;
+  onPress: () => void;
+}) {
   return (
-    <Pressable onPress={onPress} style={[styles.voteBtn, active && styles.voteBtnActive]}>
-      <Text style={styles.voteBtnText}>{label}</Text>
+    <Pressable onPress={onPress} style={[styles.roundBtn, active && styles.roundBtnActive]}>
+      <Text style={styles.roundBtnText}>{label}</Text>
     </Pressable>
+  );
+}
+
+/* 安い順リスト(참고앱の一覧ビュー相当) */
+function SpotListModal({
+  visible,
+  spots,
+  onClose,
+  onPick,
+}: {
+  visible: boolean;
+  spots: Spot[];
+  onClose: () => void;
+  onPick: (spot: Spot) => void;
+}) {
+  const sorted = [...spots].sort((a, b) => a.price - b.price);
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <View style={styles.modalOverlay}>
+        <View style={[styles.modal, styles.listModal]}>
+          <Text style={styles.modalTitle}>安い順リスト({sorted.length}件)</Text>
+          <ScrollView>
+            {sorted.map((s) => (
+              <Pressable key={s.id} onPress={() => onPick(s)} style={styles.listItem}>
+                <Text style={styles.listEmoji}>{categoryOf(s.category)?.emoji}</Text>
+                <View style={styles.listBody}>
+                  <Text style={styles.listName} numberOfLines={1}>
+                    {s.name}
+                  </Text>
+                  {s.menu ? (
+                    <Text style={styles.listMenu} numberOfLines={1}>
+                      {s.menu}
+                    </Text>
+                  ) : null}
+                </View>
+                <Text style={[styles.listPrice, { color: priceColor(s.price) }]}>
+                  {s.price === 0 ? "無料" : `¥${s.price}`}
+                </Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+          <Pressable onPress={onClose} style={styles.btnDark}>
+            <Text style={styles.btnDarkText}>閉じる</Text>
+          </Pressable>
+        </View>
+      </View>
+    </Modal>
   );
 }
 
@@ -178,14 +292,18 @@ function AddSpotModal({
   onSubmit: (spot: Spot) => void;
 }) {
   const [name, setName] = useState("");
+  const [menu, setMenu] = useState("");
   const [price, setPrice] = useState("");
+  const [hours, setHours] = useState("");
   const [comment, setComment] = useState("");
   const [category, setCategory] = useState<CategoryId>("teishoku");
 
   useEffect(() => {
     if (coord) {
       setName("");
+      setMenu("");
       setPrice("");
+      setHours("");
       setComment("");
       setCategory("teishoku");
     }
@@ -218,9 +336,12 @@ function AddSpotModal({
       price: priceNum,
       lat: coord.lat,
       lng: coord.lng,
-      comment: comment.trim(),
+      menu: menu.trim() || undefined,
+      hours: hours.trim() || undefined,
+      comment: comment.trim() || undefined,
       up: 0,
       down: 0,
+      createdAt: Date.now(),
     });
   }
 
@@ -253,6 +374,14 @@ function AddSpotModal({
           </ScrollView>
           <TextInput
             style={styles.input}
+            placeholder="メニュー名(例:かけそば)"
+            placeholderTextColor={colors.textSub}
+            value={menu}
+            onChangeText={setMenu}
+            maxLength={30}
+          />
+          <TextInput
+            style={styles.input}
             placeholder="価格(円・無料なら0)"
             placeholderTextColor={colors.textSub}
             value={price}
@@ -262,7 +391,15 @@ function AddSpotModal({
           />
           <TextInput
             style={styles.input}
-            placeholder="ひとことコメント(任意)"
+            placeholder="営業時間(任意 例:11:00-21:00)"
+            placeholderTextColor={colors.textSub}
+            value={hours}
+            onChangeText={setHours}
+            maxLength={40}
+          />
+          <TextInput
+            style={styles.input}
+            placeholder="ひとことメモ(任意)"
             placeholderTextColor={colors.textSub}
             value={comment}
             onChangeText={setComment}
@@ -273,8 +410,8 @@ function AddSpotModal({
             <Pressable onPress={onClose} style={styles.btnGhost}>
               <Text style={styles.btnGhostText}>やめる</Text>
             </Pressable>
-            <Pressable onPress={submit} style={styles.btnPrimary}>
-              <Text style={styles.btnPrimaryText}>投稿する</Text>
+            <Pressable onPress={submit} style={styles.btnDark}>
+              <Text style={styles.btnDarkText}>投稿する</Text>
             </Pressable>
           </View>
         </View>
@@ -285,7 +422,7 @@ function AddSpotModal({
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
-  filterBar: { position: "absolute", top: 8, left: 0, right: 0, zIndex: 1000 },
+  filterBar: { position: "absolute", top: 58, left: 0, right: 0, zIndex: 1000 },
   chipRow: { paddingHorizontal: 10, gap: 6, alignItems: "center" },
   chipDivider: { width: 1, height: 20, backgroundColor: colors.border, marginHorizontal: 4 },
   chip: {
@@ -296,50 +433,38 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
-  chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  chipActive: { backgroundColor: colors.dark, borderColor: colors.dark },
   chipText: { fontSize: 12, color: colors.text },
   chipTextActive: { color: "#fff", fontWeight: "700" },
+  sideButtons: { position: "absolute", top: 100, right: 10, gap: 8, zIndex: 1000 },
+  roundBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: 999,
+    backgroundColor: colors.surface,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 4,
+  },
+  roundBtnActive: { borderWidth: 2, borderColor: colors.primary },
+  roundBtnText: { fontSize: 18 },
   hintBadge: {
     position: "absolute",
-    top: 52,
+    top: 100,
     alignSelf: "center",
-    backgroundColor: "rgba(38,37,31,0.75)",
+    backgroundColor: "rgba(38,37,31,0.78)",
     borderRadius: 999,
-    paddingVertical: 4,
+    paddingVertical: 5,
     paddingHorizontal: 12,
     zIndex: 1000,
   },
   hintText: { color: "#fff", fontSize: 11 },
-  detailCard: {
-    position: "absolute",
-    left: 12,
-    right: 12,
-    bottom: 16,
-    backgroundColor: colors.surface,
-    borderRadius: 14,
-    padding: 16,
-    shadowColor: "#000",
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 6,
-    zIndex: 1000,
-  },
-  detailName: { fontSize: 16, fontWeight: "700", color: colors.text },
-  detailMeta: { fontSize: 13, color: colors.textSub, marginTop: 2 },
-  detailComment: { fontSize: 13, color: colors.text, marginTop: 6 },
-  voteRow: { flexDirection: "row", gap: 8, marginTop: 12 },
-  voteBtn: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 8,
-    paddingVertical: 8,
-    alignItems: "center",
-    backgroundColor: colors.surface,
-  },
-  voteBtnActive: { borderColor: colors.primary, backgroundColor: colors.primarySoft },
-  voteBtnText: { fontSize: 13, color: colors.text },
+  bottomLeft: { position: "absolute", left: 12, bottom: 20, zIndex: 1000 },
+  bottomRight: { position: "absolute", right: 12, bottom: 20, zIndex: 1000 },
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.4)",
@@ -353,7 +478,21 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
     ...(Platform.OS === "web" ? { maxWidth: 480, width: "100%", alignSelf: "center" as const } : null),
   },
+  listModal: { maxHeight: "70%" },
   modalTitle: { fontSize: 16, fontWeight: "700", color: colors.text, marginBottom: 12 },
+  listItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  listEmoji: { fontSize: 20 },
+  listBody: { flex: 1 },
+  listName: { fontSize: 14, fontWeight: "600", color: colors.text },
+  listMenu: { fontSize: 12, color: colors.textSub },
+  listPrice: { fontSize: 14, fontWeight: "800" },
   modalChips: { marginBottom: 10, flexGrow: 0 },
   modalChipSpacer: { marginRight: 6 },
   input: {
@@ -370,11 +509,13 @@ const styles = StyleSheet.create({
   modalActions: { flexDirection: "row", justifyContent: "flex-end", gap: 10 },
   btnGhost: { paddingVertical: 10, paddingHorizontal: 14 },
   btnGhostText: { color: colors.textSub, fontSize: 14 },
-  btnPrimary: {
-    backgroundColor: colors.primary,
-    borderRadius: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 18,
+  btnDark: {
+    backgroundColor: colors.dark,
+    borderRadius: 999,
+    paddingVertical: 11,
+    paddingHorizontal: 20,
+    alignItems: "center",
+    marginTop: 10,
   },
-  btnPrimaryText: { color: "#fff", fontSize: 14, fontWeight: "700" },
+  btnDarkText: { color: "#fff", fontSize: 14, fontWeight: "700" },
 });

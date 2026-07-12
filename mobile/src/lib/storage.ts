@@ -7,6 +7,9 @@ export const KEYS = {
   androidSteps: (date: string) => `binbomap.androidSteps.${date}`,
   userSpots: "binbomap.userSpots",
   votes: "binbomap.votes",
+  ratings: "binbomap.ratings",
+  comments: "binbomap.comments",
+  favorites: "binbomap.favorites",
 };
 
 export async function getJSON<T>(key: string, fallback: T): Promise<T> {

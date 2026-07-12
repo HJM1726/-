@@ -23,28 +23,33 @@ function Root() {
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar style="dark" />
-      <View style={styles.header}>
-        <Text style={styles.title}>🍜 ビンボーマップ</Text>
-        <View style={styles.pointBadge}>
-          <Text style={styles.pointBadgeText}>💰 {balance}pt</Text>
+      <View style={styles.body}>
+        {tab === "map" ? <MapScreen /> : <WalkScreen />}
+
+        {/* 참고앱풍のフローティング上部バー(マップの上に浮かせる) */}
+        <View style={styles.topBar} pointerEvents="box-none">
+          <View style={styles.segment}>
+            <SegmentButton
+              label="📍 マップ"
+              active={tab === "map"}
+              onPress={() => setTab("map")}
+            />
+            <SegmentButton
+              label="👟 歩数計"
+              active={tab === "walk"}
+              onPress={() => setTab("walk")}
+            />
+          </View>
+          <View style={styles.pointBadge}>
+            <Text style={styles.pointBadgeText}>✨ {balance}</Text>
+          </View>
         </View>
-      </View>
-
-      <View style={styles.body}>{tab === "map" ? <MapScreen /> : <WalkScreen />}</View>
-
-      <View style={styles.tabBar}>
-        <TabButton label="🗺️ マップ" active={tab === "map"} onPress={() => setTab("map")} />
-        <TabButton
-          label="👟 歩いてためる"
-          active={tab === "walk"}
-          onPress={() => setTab("walk")}
-        />
       </View>
     </SafeAreaView>
   );
 }
 
-function TabButton({
+function SegmentButton({
   label,
   active,
   onPress,
@@ -54,40 +59,50 @@ function TabButton({
   onPress: () => void;
 }) {
   return (
-    <Pressable onPress={onPress} style={styles.tabBtn}>
-      <Text style={[styles.tabText, active && styles.tabTextActive]}>{label}</Text>
+    <Pressable onPress={onPress} style={[styles.segmentBtn, active && styles.segmentBtnActive]}>
+      <Text style={[styles.segmentText, active && styles.segmentTextActive]}>{label}</Text>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.surface },
-  header: {
+  safe: { flex: 1, backgroundColor: colors.bg },
+  body: { flex: 1 },
+  topBar: {
+    position: "absolute",
+    top: 8,
+    left: 12,
+    right: 12,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-    backgroundColor: colors.surface,
+    zIndex: 2000,
   },
-  title: { fontSize: 17, fontWeight: "800", color: colors.text },
-  pointBadge: {
-    backgroundColor: colors.primarySoft,
-    borderRadius: 999,
-    paddingVertical: 4,
-    paddingHorizontal: 10,
-  },
-  pointBadgeText: { color: colors.primaryDark, fontWeight: "700", fontSize: 13 },
-  body: { flex: 1 },
-  tabBar: {
+  segment: {
     flexDirection: "row",
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
     backgroundColor: colors.surface,
+    borderRadius: 999,
+    padding: 4,
+    shadowColor: "#000",
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 4,
   },
-  tabBtn: { flex: 1, alignItems: "center", paddingVertical: 12 },
-  tabText: { fontSize: 14, color: colors.textSub },
-  tabTextActive: { color: colors.primary, fontWeight: "800" },
+  segmentBtn: { borderRadius: 999, paddingVertical: 8, paddingHorizontal: 14 },
+  segmentBtnActive: { backgroundColor: colors.dark },
+  segmentText: { fontSize: 13, color: colors.textSub, fontWeight: "600" },
+  segmentTextActive: { color: "#fff", fontWeight: "800" },
+  pointBadge: {
+    backgroundColor: colors.surface,
+    borderRadius: 999,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    shadowColor: "#000",
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 4,
+  },
+  pointBadgeText: { fontSize: 13, fontWeight: "800", color: colors.text },
 });

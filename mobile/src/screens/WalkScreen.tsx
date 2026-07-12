@@ -15,6 +15,8 @@ import {
 import { getJSON, setJSON, KEYS } from "../lib/storage";
 import { colors } from "../theme";
 
+const MAX_DAILY_POINTS = chunksToPoints(DAILY_STEP_CAP / STEPS_PER_CHUNK);
+
 export default function WalkScreen() {
   const { balance, addPoints } = usePoints();
   const { steps, status } = useTodaySteps();
@@ -52,18 +54,19 @@ export default function WalkScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      {/* 残高 */}
-      <View style={styles.balanceCard}>
-        <Text style={styles.balanceLabel}>ためたチリツモ</Text>
-        <Text style={styles.balanceValue}>
-          {balance} <Text style={styles.balanceUnit}>pt</Text>
-        </Text>
-        <Text style={styles.balanceNote}>塵も積もれば山となる。歩いてためよう。</Text>
-      </View>
-
-      {/* 今日の歩数 */}
+      {/* 今日の歩数(참고앱풍の大カード) */}
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>今日の歩数</Text>
+        <View style={styles.stepsHeader}>
+          <Text style={styles.stepsEmoji}>👟</Text>
+          <View style={styles.stepsCenter}>
+            <Text style={styles.stepsLabel}>今日の歩数</Text>
+            <Text style={styles.stepsValue}>{steps.toLocaleString()}</Text>
+          </View>
+          <View style={styles.liveBadge}>
+            <Text style={styles.liveBadgeText}>リアルタイム</Text>
+          </View>
+        </View>
+
         {status === "unavailable" && (
           <Text style={styles.warnText}>この端末では歩数計を利用できません</Text>
         )}
@@ -72,52 +75,82 @@ export default function WalkScreen() {
             歩数の計測が許可されていません。設定アプリから許可してください。
           </Text>
         )}
-        <Text style={styles.stepsValue}>
-          {steps.toLocaleString()} <Text style={styles.stepsUnit}>歩</Text>
-        </Text>
+
         <View style={styles.progressTrack}>
           <View style={[styles.progressFill, { width: `${progress * 100}%` }]} />
         </View>
-        <Text style={styles.progressLabel}>
-          {steps >= DAILY_STEP_CAP
-            ? "今日の上限(1万歩)に到達!"
-            : `あと ${stepsToNextChunk(steps).toLocaleString()} 歩で +${POINTS_PER_CHUNK}pt`}
-        </Text>
+        <View style={styles.progressMeta}>
+          <Text style={styles.progressLabel}>
+            {steps.toLocaleString()} / {DAILY_STEP_CAP.toLocaleString()}歩
+          </Text>
+          <Text style={styles.progressMax}>
+            最大 <Text style={styles.progressMaxStrong}>{MAX_DAILY_POINTS}</Text> pt
+          </Text>
+        </View>
 
         <Pressable
           onPress={claim}
           disabled={claimable <= 0}
-          style={[styles.claimBtn, claimable <= 0 && styles.claimBtnDisabled]}
+          style={[styles.btnDark, claimable <= 0 && styles.btnDisabled]}
         >
-          <Text style={styles.claimBtnText}>
-            {claimable > 0 ? `+${claimablePoints}pt を受け取る` : "1000歩ごとに受け取れます"}
+          <Text style={styles.btnDarkText}>
+            {claimable > 0
+              ? `✨ +${claimablePoints}pt を受け取る`
+              : steps >= DAILY_STEP_CAP
+                ? "今日の上限に到達!また明日"
+                : `あと${stepsToNextChunk(steps).toLocaleString()}歩で +${POINTS_PER_CHUNK}pt`}
           </Text>
         </Pressable>
       </View>
 
-      {/* ログインボーナス */}
+      {/* ためたポイント */}
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>本日のボーナス</Text>
-        <Pressable
-          onPress={claimBonus}
-          disabled={bonusDone}
-          style={[styles.bonusBtn, bonusDone && styles.claimBtnDisabled]}
-        >
-          <Text style={styles.claimBtnText}>
-            {bonusDone ? "✅ 受取済み(また明日!)" : `🎁 ログインボーナス +${LOGIN_BONUS}pt`}
+        <View style={styles.rowBetween}>
+          <View style={styles.rowLeft}>
+            <Text style={styles.rowEmoji}>💰</Text>
+            <View>
+              <Text style={styles.rowTitle}>ためたチリツモ</Text>
+              <Text style={styles.rowSub}>塵も積もれば山となる</Text>
+            </View>
+          </View>
+          <Text style={styles.balanceValue}>
+            {balance}
+            <Text style={styles.balanceUnit}> pt</Text>
           </Text>
-        </Pressable>
+        </View>
+      </View>
+
+      {/* ログインボーナス(참고앱の「ブースト」枠相当) */}
+      <View style={styles.card}>
+        <View style={styles.rowBetween}>
+          <View style={styles.rowLeft}>
+            <Text style={styles.rowEmoji}>⚡️</Text>
+            <View>
+              <Text style={styles.rowTitle}>本日のボーナス</Text>
+              <Text style={styles.rowSub}>1日1回タップでもらえる</Text>
+            </View>
+          </View>
+          <Pressable
+            onPress={claimBonus}
+            disabled={bonusDone}
+            style={[styles.btnDarkSmall, bonusDone && styles.btnDisabled]}
+          >
+            <Text style={styles.btnDarkText}>
+              {bonusDone ? "受取済み" : `+${LOGIN_BONUS}pt`}
+            </Text>
+          </Pressable>
+        </View>
       </View>
 
       {justClaimed != null && (
         <View style={styles.toast}>
-          <Text style={styles.toastText}>+{justClaimed}pt ゲット!</Text>
+          <Text style={styles.toastText}>✨ +{justClaimed}pt ゲット!</Text>
         </View>
       )}
 
       <Text style={styles.footNote}>
-        ルール:{STEPS_PER_CHUNK.toLocaleString()}歩ごとに{POINTS_PER_CHUNK}
-        pt。1日{DAILY_STEP_CAP.toLocaleString()}歩まで換算。ポイントの使い道は今後追加予定。
+        ルール:{STEPS_PER_CHUNK.toLocaleString()}歩ごとに{POINTS_PER_CHUNK}pt、1日
+        {DAILY_STEP_CAP.toLocaleString()}歩まで換算。ポイントの使い道は今後追加予定。
       </Text>
     </ScrollView>
   );
@@ -125,54 +158,72 @@ export default function WalkScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
-  content: { padding: 16, gap: 14 },
-  balanceCard: {
-    backgroundColor: colors.primary,
-    borderRadius: 16,
-    padding: 20,
-  },
-  balanceLabel: { color: "#ffe3d6", fontSize: 12, fontWeight: "700" },
-  balanceValue: { color: "#fff", fontSize: 40, fontWeight: "800", marginTop: 4 },
-  balanceUnit: { fontSize: 18, fontWeight: "700" },
-  balanceNote: { color: "#ffe3d6", fontSize: 11, marginTop: 4 },
+  content: { padding: 14, paddingTop: 62, gap: 12 },
   card: {
     backgroundColor: colors.surface,
-    borderRadius: 16,
+    borderRadius: 20,
     padding: 18,
-    borderWidth: 1,
-    borderColor: colors.border,
+    shadowColor: "#000",
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
   },
-  cardTitle: { fontSize: 13, color: colors.textSub, fontWeight: "700", marginBottom: 8 },
-  warnText: { fontSize: 12, color: colors.primaryDark, marginBottom: 6 },
-  stepsValue: { fontSize: 34, fontWeight: "800", color: colors.text },
-  stepsUnit: { fontSize: 16, fontWeight: "600", color: colors.textSub },
+  stepsHeader: { flexDirection: "row", alignItems: "center", gap: 12 },
+  stepsEmoji: { fontSize: 34 },
+  stepsCenter: { flex: 1 },
+  stepsLabel: { fontSize: 13, color: colors.textSub, fontWeight: "600" },
+  stepsValue: { fontSize: 40, fontWeight: "800", color: colors.text, lineHeight: 46 },
+  liveBadge: {
+    backgroundColor: colors.bg,
+    borderRadius: 999,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+  },
+  liveBadgeText: { fontSize: 11, color: colors.text, fontWeight: "600" },
+  warnText: { fontSize: 12, color: colors.primaryDark, marginTop: 8 },
   progressTrack: {
-    height: 8,
+    height: 10,
     borderRadius: 999,
     backgroundColor: colors.bg,
-    marginTop: 12,
+    marginTop: 14,
     overflow: "hidden",
   },
-  progressFill: { height: "100%", backgroundColor: colors.point, borderRadius: 999 },
-  progressLabel: { fontSize: 12, color: colors.textSub, marginTop: 6 },
-  claimBtn: {
+  progressFill: { height: "100%", backgroundColor: colors.dark, borderRadius: 999 },
+  progressMeta: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 8,
+  },
+  progressLabel: { fontSize: 13, color: colors.textSub },
+  progressMax: { fontSize: 13, color: colors.textSub },
+  progressMaxStrong: { fontWeight: "800", color: colors.text, fontSize: 15 },
+  btnDark: {
     marginTop: 14,
-    backgroundColor: colors.point,
-    borderRadius: 10,
-    paddingVertical: 12,
+    backgroundColor: colors.dark,
+    borderRadius: 999,
+    paddingVertical: 13,
     alignItems: "center",
   },
-  bonusBtn: {
-    backgroundColor: colors.primary,
-    borderRadius: 10,
-    paddingVertical: 12,
-    alignItems: "center",
+  btnDarkSmall: {
+    backgroundColor: colors.dark,
+    borderRadius: 999,
+    paddingVertical: 9,
+    paddingHorizontal: 16,
   },
-  claimBtnDisabled: { backgroundColor: colors.border },
-  claimBtnText: { color: "#fff", fontSize: 14, fontWeight: "700" },
+  btnDisabled: { backgroundColor: colors.border },
+  btnDarkText: { color: "#fff", fontSize: 14, fontWeight: "700" },
+  rowBetween: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  rowLeft: { flexDirection: "row", alignItems: "center", gap: 10 },
+  rowEmoji: { fontSize: 24 },
+  rowTitle: { fontSize: 14, fontWeight: "700", color: colors.text },
+  rowSub: { fontSize: 11, color: colors.textSub },
+  balanceValue: { fontSize: 26, fontWeight: "800", color: colors.text },
+  balanceUnit: { fontSize: 14, fontWeight: "700", color: colors.textSub },
   toast: {
-    backgroundColor: colors.text,
-    borderRadius: 10,
+    backgroundColor: colors.dark,
+    borderRadius: 999,
     paddingVertical: 10,
     alignItems: "center",
   },
