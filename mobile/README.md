@@ -43,6 +43,8 @@ src/components/SpotDetailSheet.tsx  # 가게 상세 바텀시트: 별점·댓글
 src/lib/spotUtils.ts        # SpotMap 공용 코드 (주의: .web.tsx에서 "./SpotMap" import는
                             #   플랫폼 해석 때문에 자기 자신을 가리킴 → 공용 코드는 여기로)
 src/screens/WalkScreen.tsx  # 만보기: 오늘 걸음수, 포인트 수령, 로그인 보너스
+src/screens/GuideScreen.tsx # 절약 가이드: 검색 + 카테고리 필터 + 기사 + 이해도 퀴즈(+5pt)
+src/data/guides.ts          # 교육 콘텐츠 10편 (일본어, 세금/연금/광열비/통신/주거/장학금)
 src/hooks/useSteps.ts       # expo-sensors Pedometer 래퍼 (iOS/Android 분기)
 src/lib/points.ts           # 포인트 규칙 (순수 함수, 테스트 대상)
 src/lib/storage.ts          # AsyncStorage 래퍼

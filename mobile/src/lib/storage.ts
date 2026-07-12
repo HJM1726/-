@@ -10,6 +10,8 @@ export const KEYS = {
   ratings: "binbomap.ratings",
   comments: "binbomap.comments",
   favorites: "binbomap.favorites",
+  guideQuiz: "binbomap.guideQuiz",
+  guideRead: "binbomap.guideRead",
 };
 
 export async function getJSON<T>(key: string, fallback: T): Promise<T> {

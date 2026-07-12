@@ -2,11 +2,12 @@ import { StatusBar } from "expo-status-bar";
 import React, { useState } from "react";
 import { Pressable, SafeAreaView, StyleSheet, Text, View } from "react-native";
 import { PointsProvider, usePoints } from "./src/context/PointsContext";
+import GuideScreen from "./src/screens/GuideScreen";
 import MapScreen from "./src/screens/MapScreen";
 import WalkScreen from "./src/screens/WalkScreen";
 import { colors } from "./src/theme";
 
-type Tab = "map" | "walk";
+type Tab = "map" | "walk" | "guide";
 
 export default function App() {
   return (
@@ -24,7 +25,7 @@ function Root() {
     <SafeAreaView style={styles.safe}>
       <StatusBar style="dark" />
       <View style={styles.body}>
-        {tab === "map" ? <MapScreen /> : <WalkScreen />}
+        {tab === "map" ? <MapScreen /> : tab === "walk" ? <WalkScreen /> : <GuideScreen />}
 
         {/* 참고앱풍のフローティング上部バー(マップの上に浮かせる) */}
         <View style={styles.topBar} pointerEvents="box-none">
@@ -35,9 +36,14 @@ function Root() {
               onPress={() => setTab("map")}
             />
             <SegmentButton
-              label="👟 歩数計"
+              label="👟 歩数"
               active={tab === "walk"}
               onPress={() => setTab("walk")}
+            />
+            <SegmentButton
+              label="📚 ガイド"
+              active={tab === "guide"}
+              onPress={() => setTab("guide")}
             />
           </View>
           <View style={styles.pointBadge}>
@@ -89,7 +95,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     elevation: 4,
   },
-  segmentBtn: { borderRadius: 999, paddingVertical: 8, paddingHorizontal: 14 },
+  segmentBtn: { borderRadius: 999, paddingVertical: 8, paddingHorizontal: 10 },
   segmentBtnActive: { backgroundColor: colors.dark },
   segmentText: { fontSize: 13, color: colors.textSub, fontWeight: "600" },
   segmentTextActive: { color: "#fff", fontWeight: "800" },

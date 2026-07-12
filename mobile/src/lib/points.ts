@@ -7,6 +7,7 @@ export const STEPS_PER_CHUNK = 1000; // 1000歩ごとに
 export const POINTS_PER_CHUNK = 10; // 10チリツモ
 export const DAILY_STEP_CAP = 10000; // 1日1万歩まで換算対象
 export const LOGIN_BONUS = 5; // 1日1回の起動ボーナス
+export const QUIZ_REWARD = 5; // 節約ガイドのクイズ正解(記事ごとに1回)
 
 /** 今日の歩数と受取済みチャンク数から、いま受け取れるチャンク数を返す */
 export function claimableChunks(todaySteps: number, claimedChunks: number): number {
