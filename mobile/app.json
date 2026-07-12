@@ -1,0 +1,41 @@
+{
+  "expo": {
+    "name": "ビンボーマップ",
+    "slug": "binbo-map",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.binbomap.app",
+      "infoPlist": {
+        "NSMotionUsageDescription": "歩数を計測してポイント(チリツモ)を付与するために使用します。",
+        "NSLocationWhenInUseUsageDescription": "現在地周辺の安いお店を表示するために使用します。"
+      }
+    },
+    "android": {
+      "package": "com.binbomap.app",
+      "permissions": [
+        "android.permission.ACTIVITY_RECOGNITION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ],
+      "config": {
+        "googleMaps": {
+          "apiKey": "YOUR_ANDROID_GOOGLE_MAPS_API_KEY"
+        }
+      },
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    }
+  }
+}
