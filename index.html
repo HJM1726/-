@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>ビンボーマップ | 1000円以下のコスパ最強スポット地図</title>
+  <meta name="description" content="1000円以下で食べられるコスパ最強のお店と無料スポットをみんなで共有する地図サービス">
+  <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="app-header">
+    <div class="brand">
+      <span class="brand-logo">🍜</span>
+      <div class="brand-text">
+        <h1>ビンボーマップ</h1>
+        <p>1000円以下のコスパ最強スポットをみんなで共有</p>
+      </div>
+    </div>
+    <button id="report-btn" class="btn btn-primary">📍 スポットを投稿</button>
+  </header>
+
+  <div class="app-body">
+    <aside class="sidebar">
+      <section class="filter-section">
+        <h2>予算で探す</h2>
+        <div class="price-slider-wrap">
+          <input type="range" id="price-slider" min="300" max="1000" step="50" value="700">
+          <div class="price-label">〜 <strong id="price-value">700</strong> 円</div>
+        </div>
+        <div class="price-presets">
+          <button class="chip" data-price="500">ワンコイン(500円)</button>
+          <button class="chip" data-price="800">〜800円</button>
+          <button class="chip" data-price="1000">〜1000円</button>
+        </div>
+      </section>
+
+      <section class="filter-section">
+        <h2>カテゴリ</h2>
+        <div id="category-filters" class="category-list"></div>
+      </section>
+
+      <section class="filter-section legend-section">
+        <h2>凡例</h2>
+        <ul class="legend">
+          <li><span class="dot dot-free"></span> 無料スポット</li>
+          <li><span class="dot dot-coin"></span> ワンコイン(〜500円)</li>
+          <li><span class="dot dot-mid"></span> 〜800円</li>
+          <li><span class="dot dot-high"></span> 〜1000円</li>
+        </ul>
+      </section>
+
+      <section class="filter-section stats-section">
+        <h2>現在の表示</h2>
+        <p><strong id="visible-count">0</strong> 件のスポット</p>
+      </section>
+    </aside>
+
+    <main class="map-wrap">
+      <div id="map"></div>
+      <div id="report-hint" class="report-hint hidden">
+        地図をクリックしてスポットの場所を選んでください
+        <button id="report-cancel" class="btn btn-ghost">キャンセル</button>
+      </div>
+    </main>
+  </div>
+
+  <!-- 投稿フォーム -->
+  <div id="report-modal" class="modal-overlay hidden">
+    <div class="modal">
+      <h2>スポットを投稿</h2>
+      <form id="report-form">
+        <label>店名・スポット名 <span class="req">必須</span>
+          <input type="text" id="f-name" required maxlength="40" placeholder="例：富士そば 新宿店">
+        </label>
+        <label>カテゴリ
+          <select id="f-category"></select>
+        </label>
+        <label>価格(円) <span class="req">必須</span>
+          <input type="number" id="f-price" required min="0" max="1000" step="10" placeholder="例：500(無料なら0)">
+        </label>
+        <label>ひとことコメント
+          <input type="text" id="f-comment" maxlength="80" placeholder="例：大盛り無料。昼は行列注意">
+        </label>
+        <p class="form-note">※ 1000円以下のスポットのみ投稿できます。投稿はこの端末に保存されます(MVP版)。</p>
+        <div class="modal-actions">
+          <button type="button" id="form-cancel" class="btn btn-ghost">やめる</button>
+          <button type="submit" class="btn btn-primary">投稿する</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="vendor/leaflet/leaflet.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
