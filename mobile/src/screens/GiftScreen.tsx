@@ -20,6 +20,7 @@ import {
   TradeState,
   giftBrandOf,
 } from "../data/gifts";
+import { RAFFLES, WINNER_FEED, formatCountdown } from "../data/raffles";
 import { getJSON, setJSON, KEYS } from "../lib/storage";
 import { colors } from "../theme";
 
@@ -33,11 +34,29 @@ export default function GiftScreen() {
   const [tradeStates, setTradeStates] = useState<Record<string, TradeState>>({});
   const [openListing, setOpenListing] = useState<GiftListing | null>(null);
   const [posting, setPosting] = useState(false);
+  const [raffleEntries, setRaffleEntries] = useState<Record<string, number>>({});
+  const [now, setNow] = useState(Date.now());
 
   useEffect(() => {
     getJSON<GiftListing[]>(KEYS.giftListings, []).then(setMyListings);
     getJSON<Record<string, TradeState>>(KEYS.giftTrades, {}).then(setTradeStates);
+    getJSON<Record<string, number>>(KEYS.raffleEntries, {}).then(setRaffleEntries);
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
   }, []);
+
+  async function enterRaffle(raffleId: string) {
+    const raffle = RAFFLES.find((r) => r.id === raffleId);
+    if (!raffle) return;
+    const mine = raffleEntries[raffleId] ?? 0;
+    if (mine >= raffle.maxEntries || balance < raffle.costPt || raffle.endsAt <= now) return;
+    await addPoints(-raffle.costPt);
+    setRaffleEntries((prev) => {
+      const next = { ...prev, [raffleId]: (prev[raffleId] ?? 0) + 1 };
+      void setJSON(KEYS.raffleEntries, next);
+      return next;
+    });
+  }
 
   const listings = useMemo(
     () => [...myListings, ...SAMPLE_LISTINGS].sort((a, b) => b.createdAt - a.createdAt),
@@ -110,6 +129,75 @@ export default function GiftScreen() {
             ⚠️ 取引成立までギフトコードを直接書かない・送らないでください。コードの受け渡しは今後のアップデートでアプリが仲介(エスクロー)します。現金での売買は禁止です。
           </Text>
         </View>
+
+        {/* チリツモ抽選(참고앱の티끌드로우) */}
+        <Text style={styles.raffleHeading}>🎯 チリツモ抽選</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.raffleRow}>
+          {RAFFLES.map((r) => {
+            const mine = raffleEntries[r.id] ?? 0;
+            const left = r.maxEntries - mine;
+            const ended = r.endsAt <= now;
+            const canEnter = !ended && left > 0 && balance >= r.costPt;
+            return (
+              <View key={r.id} style={styles.raffleCard}>
+                <Text style={styles.raffleEmoji}>{r.emoji}</Text>
+                <Text style={styles.raffleTitle} numberOfLines={1}>
+                  {r.title}
+                </Text>
+                <View style={styles.raffleBtnRow}>
+                  <View style={styles.raffleCost}>
+                    <Text style={styles.raffleCostText}>{r.costPt}pt</Text>
+                  </View>
+                  <Pressable
+                    onPress={() => void enterRaffle(r.id)}
+                    disabled={!canEnter}
+                    style={[styles.raffleBtn, !canEnter && styles.raffleBtnDisabled]}
+                  >
+                    <Text style={styles.raffleBtnText}>
+                      {ended
+                        ? "受付終了"
+                        : left <= 0
+                          ? "応募済み(上限)"
+                          : balance < r.costPt
+                            ? "ポイント不足"
+                            : `参加する・残り${left}回`}
+                    </Text>
+                  </Pressable>
+                </View>
+                <View style={styles.raffleDeadline}>
+                  <Text style={styles.raffleDeadlineText}>
+                    締切まで {formatCountdown(r.endsAt, now)}
+                  </Text>
+                </View>
+                <Text style={styles.raffleMeta}>
+                  参加 {r.seedEntrants + mine}人・{r.winners}名抽選
+                  {mine > 0 ? ` ・自分${mine}口` : ""}
+                </Text>
+              </View>
+            );
+          })}
+        </ScrollView>
+
+        {/* 当選フィード */}
+        <View style={styles.winnerCard}>
+          <Text style={styles.winnerHeading}>🎉 リアルタイム当選フィード</Text>
+          {WINNER_FEED.map((w) => (
+            <View key={w.id} style={styles.winnerRow}>
+              <Text style={styles.winnerEmoji}>{w.emoji}</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.winnerTitle} numberOfLines={1}>
+                  {w.title}
+                </Text>
+                <Text style={styles.winnerSub}>
+                  {w.winner}・{w.agoHours < 24 ? `${w.agoHours}時間前` : `${Math.floor(w.agoHours / 24)}日前`}
+                </Text>
+              </View>
+              <Text style={styles.winnerStatus}>{w.status}</Text>
+            </View>
+          ))}
+        </View>
+
+        <Text style={styles.raffleHeading}>🛍 出品一覧</Text>
 
         {/* 検索 + フィルタ */}
         <TextInput
@@ -443,6 +531,67 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   noticeText: { fontSize: 11, color: "#7a6420", lineHeight: 16 },
+  raffleHeading: { fontSize: 15, fontWeight: "800", color: colors.text, marginTop: 16 },
+  raffleRow: { gap: 10, paddingVertical: 10 },
+  raffleCard: {
+    width: 250,
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    padding: 14,
+    shadowColor: "#000",
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+  },
+  raffleEmoji: { fontSize: 40, textAlign: "center" },
+  raffleTitle: { fontSize: 14, fontWeight: "800", color: colors.text, textAlign: "center", marginTop: 6 },
+  raffleBtnRow: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 10 },
+  raffleCost: {
+    borderWidth: 1,
+    borderColor: colors.gold,
+    borderRadius: 999,
+    paddingVertical: 7,
+    paddingHorizontal: 10,
+  },
+  raffleCostText: { fontSize: 12, fontWeight: "800", color: "#8a6d00" },
+  raffleBtn: {
+    flex: 1,
+    backgroundColor: colors.dark,
+    borderRadius: 999,
+    paddingVertical: 9,
+    alignItems: "center",
+  },
+  raffleBtnDisabled: { backgroundColor: colors.border },
+  raffleBtnText: { fontSize: 11, fontWeight: "800", color: "#fff" },
+  raffleDeadline: {
+    backgroundColor: "#fdeaea",
+    borderRadius: 999,
+    paddingVertical: 5,
+    alignItems: "center",
+    marginTop: 8,
+  },
+  raffleDeadlineText: { fontSize: 12, fontWeight: "800", color: colors.newBadge },
+  raffleMeta: { fontSize: 11, color: colors.textSub, textAlign: "center", marginTop: 6 },
+  winnerCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    padding: 14,
+    marginTop: 4,
+  },
+  winnerHeading: { fontSize: 13, fontWeight: "800", color: colors.text, marginBottom: 4 },
+  winnerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingVertical: 8,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  winnerEmoji: { fontSize: 20 },
+  winnerTitle: { fontSize: 13, fontWeight: "600", color: colors.text },
+  winnerSub: { fontSize: 11, color: colors.textSub },
+  winnerStatus: { fontSize: 11, fontWeight: "700", color: colors.free },
   search: {
     backgroundColor: colors.surface,
     borderRadius: 999,

@@ -2,9 +2,12 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export const KEYS = {
   points: "binbomap.points",
-  claimedChunks: (date: string) => `binbomap.claimedChunks.${date}`,
+  claimedMilestones: (date: string) => `binbomap.claimedMilestones.${date}`,
   loginBonus: (date: string) => `binbomap.loginBonus.${date}`,
+  roulette: (date: string) => `binbomap.roulette.${date}`,
+  chest: (date: string) => `binbomap.chest.${date}`,
   androidSteps: (date: string) => `binbomap.androidSteps.${date}`,
+  raffleEntries: "binbomap.raffleEntries",
   userSpots: "binbomap.userSpots",
   votes: "binbomap.votes",
   ratings: "binbomap.ratings",

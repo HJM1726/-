@@ -10,13 +10,6 @@ import { colors } from "./src/theme";
 
 type Tab = "map" | "walk" | "guide" | "gift";
 
-const SCREENS: Record<Tab, React.ComponentType> = {
-  map: MapScreen,
-  walk: WalkScreen,
-  guide: GuideScreen,
-  gift: GiftScreen,
-};
-
 const TABS: { id: Tab; label: string }[] = [
   { id: "map", label: "📍マップ" },
   { id: "walk", label: "👟歩数" },
@@ -35,13 +28,15 @@ export default function App() {
 function Root() {
   const [tab, setTab] = useState<Tab>("map");
   const { balance } = usePoints();
-  const Screen = SCREENS[tab];
 
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar style="dark" />
       <View style={styles.body}>
-        <Screen />
+        {tab === "map" && <MapScreen />}
+        {tab === "walk" && <WalkScreen onGoGuide={() => setTab("guide")} />}
+        {tab === "guide" && <GuideScreen />}
+        {tab === "gift" && <GiftScreen />}
 
         {/* 참고앱풍のフローティング上部バー(マップの上に浮かせる) */}
         <View style={styles.topBar} pointerEvents="box-none">

@@ -2,57 +2,75 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  DAILY_STEP_CAP,
+  CHEST_MAX,
+  CHEST_MIN,
+  FINAL_MILESTONE_STEPS,
   LOGIN_BONUS,
-  POINTS_PER_CHUNK,
-  chunksToPoints,
-  claimableChunks,
+  MAX_DAILY_STEP_POINTS,
+  QUIZ_REWARD,
+  ROULETTE_PRIZES,
+  STEP_MILESTONES,
+  claimableMilestones,
   dateKey,
-  stepsToNextChunk,
+  nextMilestone,
+  reachedMilestones,
+  rollChest,
+  rollRoulette,
 } from "./points.ts";
 
-test("1000歩未満は受取なし", () => {
-  assert.equal(claimableChunks(999, 0), 0);
+test("区間は昇順に定義されている", () => {
+  for (let i = 1; i < STEP_MILESTONES.length; i++) {
+    assert.ok(STEP_MILESTONES[i].steps > STEP_MILESTONES[i - 1].steps);
+  }
 });
 
-test("1000歩ごとに1チャンク", () => {
-  assert.equal(claimableChunks(1000, 0), 1);
-  assert.equal(claimableChunks(3500, 0), 3);
+test("到達区間の判定", () => {
+  assert.equal(reachedMilestones(0).length, 0);
+  assert.equal(reachedMilestones(1999).length, 0);
+  assert.equal(reachedMilestones(2000).length, 1);
+  assert.equal(reachedMilestones(5000).length, 2);
+  assert.equal(reachedMilestones(13152).length, 4);
 });
 
-test("受取済みチャンクは差し引く", () => {
-  assert.equal(claimableChunks(3500, 2), 1);
-  assert.equal(claimableChunks(3500, 3), 0);
+test("受取済みの区間は除外される", () => {
+  assert.equal(claimableMilestones(5000, [2000]).length, 1);
+  assert.equal(claimableMilestones(5000, [2000, 5000]).length, 0);
+  assert.equal(claimableMilestones(10000, []).length, 4);
 });
 
-test("受取済みが歩数を上回っても負にならない", () => {
-  assert.equal(claimableChunks(1000, 5), 0);
+test("1日の最大歩数ポイント", () => {
+  const total = claimableMilestones(FINAL_MILESTONE_STEPS, []).reduce((s, m) => s + m.pt, 0);
+  assert.equal(total, MAX_DAILY_STEP_POINTS);
 });
 
-test("1日1万歩で頭打ち", () => {
-  assert.equal(claimableChunks(25000, 0), DAILY_STEP_CAP / 1000);
+test("次の区間", () => {
+  assert.equal(nextMilestone(0)?.steps, 2000);
+  assert.equal(nextMilestone(2000)?.steps, 5000);
+  assert.equal(nextMilestone(10000), undefined);
 });
 
-test("負の歩数は0扱い", () => {
-  assert.equal(claimableChunks(-100, 0), 0);
+test("ルーレットは定義済み賞金のどれかを返す", () => {
+  assert.equal(rollRoulette(() => 0), ROULETTE_PRIZES[0]);
+  assert.equal(rollRoulette(() => 0.999999), ROULETTE_PRIZES[ROULETTE_PRIZES.length - 1]);
+  for (let i = 0; i < 20; i++) {
+    assert.ok(ROULETTE_PRIZES.includes(rollRoulette()));
+  }
 });
 
-test("ポイント換算", () => {
-  assert.equal(chunksToPoints(3), 3 * POINTS_PER_CHUNK);
-});
-
-test("次のチャンクまでの歩数", () => {
-  assert.equal(stepsToNextChunk(0), 1000);
-  assert.equal(stepsToNextChunk(999), 1);
-  assert.equal(stepsToNextChunk(1000), 1000);
-  assert.equal(stepsToNextChunk(DAILY_STEP_CAP), 0);
-  assert.equal(stepsToNextChunk(DAILY_STEP_CAP + 500), 0);
+test("宝箱は範囲内を返す", () => {
+  assert.equal(rollChest(() => 0), CHEST_MIN);
+  assert.equal(rollChest(() => 0.999999), CHEST_MAX);
+  for (let i = 0; i < 20; i++) {
+    const v = rollChest();
+    assert.ok(v >= CHEST_MIN && v <= CHEST_MAX);
+  }
 });
 
 test("日付キーの形式", () => {
   assert.match(dateKey(new Date(2026, 6, 12)), /^2026-07-12$/);
 });
 
-test("ログインボーナスは正の値", () => {
+test("ボーナス定数は正の値", () => {
   assert.ok(LOGIN_BONUS > 0);
+  assert.ok(QUIZ_REWARD > 0);
 });

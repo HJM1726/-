@@ -1,32 +1,58 @@
 /* ポイント(チリツモ)計算ロジック。
- * 「塵も積もれば山となる」から命名。歩数をポイントに変換する。
+ * 「塵も積もれば山となる」から命名。歩数や日次アクションをポイントに変換する。
  * 純粋関数として分離し、UIなしでテストできるようにしている。
  */
 
-export const STEPS_PER_CHUNK = 1000; // 1000歩ごとに
-export const POINTS_PER_CHUNK = 10; // 10チリツモ
-export const DAILY_STEP_CAP = 10000; // 1日1万歩まで換算対象
-export const LOGIN_BONUS = 5; // 1日1回の起動ボーナス
+/* ---- 歩数の区間報酬(참고앱の「구간보상」方式) ---- */
+
+export interface StepMilestone {
+  steps: number;
+  pt: number;
+}
+
+export const STEP_MILESTONES: StepMilestone[] = [
+  { steps: 2000, pt: 30 },
+  { steps: 5000, pt: 30 },
+  { steps: 8000, pt: 30 },
+  { steps: 10000, pt: 30 },
+];
+
+export const MAX_DAILY_STEP_POINTS = STEP_MILESTONES.reduce((sum, m) => sum + m.pt, 0);
+export const FINAL_MILESTONE_STEPS = STEP_MILESTONES[STEP_MILESTONES.length - 1].steps;
+
+/** 今日の歩数で到達済みの区間 */
+export function reachedMilestones(steps: number): StepMilestone[] {
+  return STEP_MILESTONES.filter((m) => steps >= m.steps);
+}
+
+/** 到達済みかつ未受取の区間 */
+export function claimableMilestones(steps: number, claimedSteps: number[]): StepMilestone[] {
+  return reachedMilestones(steps).filter((m) => !claimedSteps.includes(m.steps));
+}
+
+/** 次の区間(全区間到達済みなら undefined) */
+export function nextMilestone(steps: number): StepMilestone | undefined {
+  return STEP_MILESTONES.find((m) => steps < m.steps);
+}
+
+/* ---- 日次リワード ---- */
+
+export const LOGIN_BONUS = 5; // 出席(1日1回)
 export const QUIZ_REWARD = 5; // 節約ガイドのクイズ正解(記事ごとに1回)
+export const ROULETTE_PRIZES = [5, 10, 15, 20, 30, 50]; // ルーレット(1日1回)
+export const CHEST_MIN = 1; // 宝箱(1日1回)
+export const CHEST_MAX = 10;
 
-/** 今日の歩数と受取済みチャンク数から、いま受け取れるチャンク数を返す */
-export function claimableChunks(todaySteps: number, claimedChunks: number): number {
-  const cappedSteps = Math.min(Math.max(todaySteps, 0), DAILY_STEP_CAP);
-  const totalChunks = Math.floor(cappedSteps / STEPS_PER_CHUNK);
-  return Math.max(totalChunks - claimedChunks, 0);
+export function rollRoulette(rand: () => number = Math.random): number {
+  const idx = Math.min(Math.floor(rand() * ROULETTE_PRIZES.length), ROULETTE_PRIZES.length - 1);
+  return ROULETTE_PRIZES[idx];
 }
 
-/** チャンク数をポイントに換算 */
-export function chunksToPoints(chunks: number): number {
-  return chunks * POINTS_PER_CHUNK;
+export function rollChest(rand: () => number = Math.random): number {
+  return CHEST_MIN + Math.min(Math.floor(rand() * (CHEST_MAX - CHEST_MIN + 1)), CHEST_MAX - CHEST_MIN);
 }
 
-/** 次のチャンクまであと何歩か(上限到達後は0) */
-export function stepsToNextChunk(todaySteps: number): number {
-  const capped = Math.min(Math.max(todaySteps, 0), DAILY_STEP_CAP);
-  if (capped >= DAILY_STEP_CAP) return 0;
-  return STEPS_PER_CHUNK - (capped % STEPS_PER_CHUNK);
-}
+/* ---- 日付ユーティリティ ---- */
 
 /** ローカル日付キー(端末タイムゾーン基準) YYYY-MM-DD */
 export function dateKey(d: Date = new Date()): string {
