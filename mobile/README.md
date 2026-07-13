@@ -25,6 +25,26 @@ npx expo start --web  # 웹 브라우저에서 바로 열기
 npx expo export --platform web   # dist/ 생성 → 그대로 정적 호스팅에 업로드
 ```
 
+## 서버 연동 (Supabase)
+
+스팟 데이터는 데이터 레이어(`src/lib/spotsRepo.ts`)를 통해 읽고 쓰며,
+**환경변수가 있으면 서버 모드, 없으면 로컬 모드**로 자동 전환됩니다.
+
+1. [supabase.com](https://supabase.com)에서 무료 프로젝트 생성
+2. **Authentication → Sign In / Up → Anonymous Sign-Ins 활성화** (가입 없는 익명 인증)
+3. SQL Editor에 [`/supabase/schema.sql`](../supabase/schema.sql) 내용을 붙여 실행
+   (테이블 + RLS 보안정책 + 승인 큐 + 포인트 원장 등 전부 생성됨)
+4. `mobile/.env.example`을 `mobile/.env`로 복사하고 Project Settings → API의
+   URL과 anon key를 채움 → `npx expo start` 재시작
+
+서버 모드에서의 동작:
+- 지도는 **승인된(approved) 스팟만** 표시 (`spots_public` 뷰)
+- 투고는 `status=pending`으로 저장 → 대시보드 Table Editor에서 `approved`로 바꾸면 공개
+  (거지맵과 같은 승인제)
+- 투표/별점/댓글/마켓/추첨 테이블과 정책도 스키마에 준비되어 있고, 화면 연결은 다음 단계
+- 포인트는 잔액 컬럼이 아니라 **원장(points_ledger) 합산** 구조 — 부정 적립 검증을
+  Edge Function으로 넣기 위한 설계. 기프트코드 에스크로도 평문 저장 금지를 스키마에 명시
+
 ## 검증 명령
 
 ```bash

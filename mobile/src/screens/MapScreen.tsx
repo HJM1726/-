@@ -14,6 +14,7 @@ import {
 import SpotMap, { SpotMapHandle } from "../components/SpotMap";
 import SpotDetailSheet from "../components/SpotDetailSheet";
 import { CATEGORIES, SAMPLE_SPOTS, categoryOf } from "../data/spots";
+import { fetchSpots, submitSpot } from "../lib/spotsRepo";
 import { getJSON, setJSON, KEYS } from "../lib/storage";
 import { colors, priceColor } from "../theme";
 import { CategoryId, CommentMap, RatingMap, Spot, SpotComment, VoteDir, VoteMap } from "../types";
@@ -31,7 +32,7 @@ export default function MapScreen() {
   const [activeCategories, setActiveCategories] = useState<Set<CategoryId>>(
     new Set(CATEGORIES.map((c) => c.id)),
   );
-  const [userSpots, setUserSpots] = useState<Spot[]>([]);
+  const [spots, setSpots] = useState<Spot[]>(SAMPLE_SPOTS);
   const [votes, setVotes] = useState<VoteMap>({});
   const [ratings, setRatings] = useState<RatingMap>({});
   const [comments, setComments] = useState<CommentMap>({});
@@ -43,14 +44,12 @@ export default function MapScreen() {
   const mapRef = useRef<SpotMapHandle>(null);
 
   useEffect(() => {
-    getJSON<Spot[]>(KEYS.userSpots, []).then(setUserSpots);
+    fetchSpots().then(setSpots);
     getJSON<VoteMap>(KEYS.votes, {}).then(setVotes);
     getJSON<RatingMap>(KEYS.ratings, {}).then(setRatings);
     getJSON<CommentMap>(KEYS.comments, {}).then(setComments);
     getJSON<string[]>(KEYS.favorites, []).then(setFavorites);
   }, []);
-
-  const spots = useMemo(() => SAMPLE_SPOTS.concat(userSpots), [userSpots]);
 
   const visibleSpots = useMemo(
     () =>
@@ -112,11 +111,23 @@ export default function MapScreen() {
   }
 
   async function addSpot(spot: Spot) {
-    const next = [...userSpots, spot];
-    setUserSpots(next);
-    await setJSON(KEYS.userSpots, next);
     setPendingCoord(null);
-    mapRef.current?.focusSpot(spot);
+    try {
+      const result = await submitSpot(spot);
+      if (result.pendingApproval) {
+        notify("投稿ありがとうございます!承認後に地図に表示されます");
+        return;
+      }
+      setSpots(await fetchSpots());
+      mapRef.current?.focusSpot(spot);
+    } catch {
+      notify("投稿に失敗しました。通信環境を確認してもう一度お試しください");
+    }
+  }
+
+  function notify(message: string) {
+    if (Platform.OS === "web") window.alert(message);
+    else Alert.alert(message);
   }
 
   function openFromList(spot: Spot) {
