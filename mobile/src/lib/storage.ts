@@ -6,8 +6,11 @@ export const KEYS = {
   loginBonus: (date: string) => `binbomap.loginBonus.${date}`,
   roulette: (date: string) => `binbomap.roulette.${date}`,
   chest: (date: string) => `binbomap.chest.${date}`,
+  adViews: (date: string) => `binbomap.adViews.${date}`,
   androidSteps: (date: string) => `binbomap.androidSteps.${date}`,
   raffleEntries: "binbomap.raffleEntries",
+  account: "binbomap.account",
+  myCoupons: "binbomap.myCoupons",
   userSpots: "binbomap.userSpots",
   votes: "binbomap.votes",
   ratings: "binbomap.ratings",
@@ -15,8 +18,6 @@ export const KEYS = {
   favorites: "binbomap.favorites",
   guideQuiz: "binbomap.guideQuiz",
   guideRead: "binbomap.guideRead",
-  giftListings: "binbomap.giftListings",
-  giftTrades: "binbomap.giftTrades",
 };
 
 export async function getJSON<T>(key: string, fallback: T): Promise<T> {

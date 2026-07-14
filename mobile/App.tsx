@@ -1,6 +1,7 @@
 import { StatusBar } from "expo-status-bar";
 import React, { useState } from "react";
 import { Pressable, SafeAreaView, StyleSheet, Text, View } from "react-native";
+import { AccountProvider } from "./src/context/AccountContext";
 import { PointsProvider, usePoints } from "./src/context/PointsContext";
 import GiftScreen from "./src/screens/GiftScreen";
 import GuideScreen from "./src/screens/GuideScreen";
@@ -14,14 +15,16 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "map", label: "📍マップ" },
   { id: "walk", label: "👟歩数" },
   { id: "guide", label: "📚ガイド" },
-  { id: "gift", label: "🎁ギフト" },
+  { id: "gift", label: "🎁交換所" },
 ];
 
 export default function App() {
   return (
-    <PointsProvider>
-      <Root />
-    </PointsProvider>
+    <AccountProvider>
+      <PointsProvider>
+        <Root />
+      </PointsProvider>
+    </AccountProvider>
   );
 }
 

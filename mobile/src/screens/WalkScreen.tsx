@@ -1,8 +1,12 @@
 import React, { useEffect, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import LoginModal from "../components/LoginModal";
+import { useAccount } from "../context/AccountContext";
 import { usePoints } from "../context/PointsContext";
 import { useTodaySteps } from "../hooks/useSteps";
 import {
+  AD_DAILY_CAP,
+  AD_REWARD,
   CHEST_MAX,
   CHEST_MIN,
   FINAL_MILESTONE_STEPS,
@@ -24,11 +28,15 @@ const ROULETTE_MAX = Math.max(...ROULETTE_PRIZES);
 
 export default function WalkScreen({ onGoGuide }: { onGoGuide?: () => void }) {
   const { balance, addPoints } = usePoints();
+  const { account } = useAccount();
   const { steps, status } = useTodaySteps();
   const [claimed, setClaimed] = useState<number[]>([]);
   const [bonusDone, setBonusDone] = useState(true);
   const [rouletteResult, setRouletteResult] = useState<number | null>(null);
   const [chestResult, setChestResult] = useState<number | null>(null);
+  const [adViews, setAdViews] = useState(0);
+  const [adPlaying, setAdPlaying] = useState(false);
+  const [loginVisible, setLoginVisible] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
   const today = dateKey();
@@ -38,13 +46,23 @@ export default function WalkScreen({ onGoGuide }: { onGoGuide?: () => void }) {
     getJSON<boolean>(KEYS.loginBonus(today), false).then(setBonusDone);
     getJSON<number | null>(KEYS.roulette(today), null).then(setRouletteResult);
     getJSON<number | null>(KEYS.chest(today), null).then(setChestResult);
+    getJSON<number>(KEYS.adViews(today), 0).then(setAdViews);
   }, [today]);
 
   const claimable = claimableMilestones(steps, claimed);
   const next = nextMilestone(steps);
   const progress = Math.min(steps / FINAL_MILESTONE_STEPS, 1);
+  const adLeft = AD_DAILY_CAP - adViews;
+
+  /* 참고앱 방식의 게이트: 閲覧은 익명 OK, 포인트 수령은 로그인 필수(부정 방지) */
+  function requireLogin(): boolean {
+    if (account) return false;
+    setLoginVisible(true);
+    return true;
+  }
 
   async function claimMilestone(msSteps: number, pt: number) {
+    if (requireLogin()) return;
     if (claimed.includes(msSteps)) return;
     const nextClaimed = [...claimed, msSteps];
     setClaimed(nextClaimed);
@@ -54,6 +72,7 @@ export default function WalkScreen({ onGoGuide }: { onGoGuide?: () => void }) {
   }
 
   async function claimBonus() {
+    if (requireLogin()) return;
     if (bonusDone) return;
     setBonusDone(true);
     await setJSON(KEYS.loginBonus(today), true);
@@ -62,6 +81,7 @@ export default function WalkScreen({ onGoGuide }: { onGoGuide?: () => void }) {
   }
 
   async function spinRoulette() {
+    if (requireLogin()) return;
     if (rouletteResult != null) return;
     const prize = rollRoulette();
     setRouletteResult(prize);
@@ -71,12 +91,28 @@ export default function WalkScreen({ onGoGuide }: { onGoGuide?: () => void }) {
   }
 
   async function openChest() {
+    if (requireLogin()) return;
     if (chestResult != null) return;
     const prize = rollChest();
     setChestResult(prize);
     await setJSON(KEYS.chest(today), prize);
     await addPoints(prize);
     setToast(`🎁 宝箱 +${prize}pt!`);
+  }
+
+  function startAd() {
+    if (requireLogin()) return;
+    if (adLeft <= 0 || adPlaying) return;
+    setAdPlaying(true);
+  }
+
+  async function finishAd() {
+    setAdPlaying(false);
+    const nextViews = adViews + 1;
+    setAdViews(nextViews);
+    await setJSON(KEYS.adViews(today), nextViews);
+    await addPoints(AD_REWARD);
+    setToast(`📺 広告視聴 +${AD_REWARD}pt!`);
   }
 
   return (
@@ -146,6 +182,14 @@ export default function WalkScreen({ onGoGuide }: { onGoGuide?: () => void }) {
         {next == null && <Text style={styles.allDone}>🎉 今日の全区間を達成!</Text>}
       </View>
 
+      {!account && (
+        <Pressable onPress={() => setLoginVisible(true)} style={styles.loginBanner}>
+          <Text style={styles.loginBannerText}>
+            🔒 ポイントの受け取りにはログイン(ニックネーム登録)が必要です。タップして登録
+          </Text>
+        </Pressable>
+      )}
+
       {/* デイリーリワードタイル(참고앱の리워드 허브) */}
       <View style={styles.tileGrid}>
         <RewardTile
@@ -154,6 +198,13 @@ export default function WalkScreen({ onGoGuide }: { onGoGuide?: () => void }) {
           value={bonusDone ? "受取済み" : `+${LOGIN_BONUS}pt`}
           done={bonusDone}
           onPress={() => void claimBonus()}
+        />
+        <RewardTile
+          emoji="📺"
+          title="広告を見る"
+          value={adLeft > 0 ? `+${AD_REWARD}pt・残り${adLeft}回` : "本日の上限"}
+          done={adLeft <= 0}
+          onPress={startAd}
         />
         <RewardTile
           emoji="🎰"
@@ -202,9 +253,48 @@ export default function WalkScreen({ onGoGuide }: { onGoGuide?: () => void }) {
       )}
 
       <Text style={styles.footNote}>
-        毎日リセット:区間報酬(最大{MAX_DAILY_STEP_POINTS}pt)+出席+ルーレット+宝箱。ポイントはギフト券マーケットと抽選で使えます。
+        毎日リセット:区間報酬(最大{MAX_DAILY_STEP_POINTS}pt)+出席+広告(最大{AD_REWARD * AD_DAILY_CAP}pt)+ルーレット+宝箱。ポイントは交換所のクーポンと抽選で使えます。
       </Text>
+
+      <AdModal visible={adPlaying} onFinish={() => void finishAd()} />
+      <LoginModal visible={loginVisible} onClose={() => setLoginVisible(false)} />
     </ScrollView>
+  );
+}
+
+/* リワード広告のプレースホルダー。本番はAdMob等のリワード広告SDKに差し替え、
+ * 「視聴完了コールバック→サーバーで付与」の流れにする(참고앱の재원 연동 방식)。 */
+function AdModal({ visible, onFinish }: { visible: boolean; onFinish: () => void }) {
+  const [remaining, setRemaining] = useState(3);
+
+  useEffect(() => {
+    if (!visible) return;
+    setRemaining(3);
+    const timer = setInterval(() => {
+      setRemaining((r) => {
+        if (r <= 1) {
+          clearInterval(timer);
+          onFinish();
+          return 0;
+        }
+        return r - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible]);
+
+  return (
+    <Modal visible={visible} transparent animationType="fade">
+      <View style={styles.adOverlay}>
+        <View style={styles.adBox}>
+          <Text style={styles.adLabel}>広告(デモ)</Text>
+          <Text style={styles.adEmoji}>📺</Text>
+          <Text style={styles.adText}>広告SDK連携前のプレースホルダーです</Text>
+          <Text style={styles.adCount}>{remaining}秒後に +{AD_REWARD}pt</Text>
+        </View>
+      </View>
+    </Modal>
   );
 }
 
@@ -335,4 +425,29 @@ const styles = StyleSheet.create({
   },
   toastText: { color: "#fff", fontWeight: "700" },
   footNote: { fontSize: 11, color: colors.textSub, textAlign: "center", marginTop: 4 },
+  loginBanner: {
+    backgroundColor: "#fdf6e3",
+    borderRadius: 12,
+    padding: 12,
+  },
+  loginBannerText: { fontSize: 12, color: "#7a6420", lineHeight: 17, fontWeight: "600" },
+  adOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.7)",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 24,
+  },
+  adBox: {
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    padding: 24,
+    alignItems: "center",
+    width: "100%",
+    maxWidth: 320,
+  },
+  adLabel: { fontSize: 11, color: colors.textSub, alignSelf: "flex-start" },
+  adEmoji: { fontSize: 48, marginVertical: 12 },
+  adText: { fontSize: 12, color: colors.textSub, textAlign: "center" },
+  adCount: { fontSize: 16, fontWeight: "800", color: colors.text, marginTop: 10 },
 });

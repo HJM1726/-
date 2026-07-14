@@ -65,8 +65,9 @@ src/lib/spotUtils.ts        # SpotMap 공용 코드 (주의: .web.tsx에서 "./S
 src/screens/WalkScreen.tsx  # 만보기: 오늘 걸음수, 포인트 수령, 로그인 보너스
 src/screens/GuideScreen.tsx # 절약 가이드: 검색 + 카테고리 필터 + 기사 + 이해도 퀴즈(+5pt)
 src/data/guides.ts          # 교육 콘텐츠 10편 (일본어, 세금/연금/광열비/통신/주거/장학금)
-src/screens/GiftScreen.tsx  # 기프트권 마켓: 포인트 판매/물물교환, 출품, 코드 기재 차단
-src/data/gifts.ts           # 기프트 브랜드 8종 + 샘플 출품 (본번은 서버 + 에스크로 필수)
+src/screens/GiftScreen.tsx  # 교환소(B2C): 운영자 쿠폰 교환 + チリツモ抽選 (C2C 없음)
+src/data/coupons.ts         # 쿠폰 카탈로그 (브랜드 제휴 전 데모)
+src/context/AccountContext.tsx / src/components/LoginModal.tsx  # 로그인 게이트
 src/hooks/useSteps.ts       # expo-sensors Pedometer 래퍼 (iOS/Android 분기)
 src/lib/points.ts           # 포인트 규칙 (순수 함수, 테스트 대상)
 src/lib/storage.ts          # AsyncStorage 래퍼
@@ -74,13 +75,19 @@ src/context/PointsContext.tsx
 src/data/spots.ts           # 도쿄 샘플 스팟 15곳 (데모용 개략 좌표)
 ```
 
-## 포인트(チリツモ) 규칙 (`src/lib/points.ts`에서 조정 가능)
+## 포인트(チリツモ) 경제 설계 (`src/lib/points.ts`에서 조정 가능)
 
-- **만보기 구간보상**: 2,000/5,000/8,000/10,000보 도달 시 각 +30pt (1일 최대 120pt)
-- **데일리 리워드**: 출석 +5pt / 룰렛 최대 50pt / 보물상자 +1~10pt (각 1일 1회)
-- **퀴즈**: 절약 가이드 기사당 정답 1회 +5pt
-- **사용처**: 기프트권 마켓 구매 / チリツモ抽選(경품 추첨) 응모
-- 잔액·수령 이력은 AsyncStorage(단말 로컬)에 저장. 추첨의 실제 당첨·발송은 서버 대응 후
+**원칙: 포인트는 광고·어필리에이트 수익의 분배** (거지맵 방식). 무재원 지급은 소액으로 억제.
+
+- **광고 시청**: +20pt × 1일 3회 = 최대 60pt — **가장 큰 지급원** (현재 데모 모달,
+  본번은 AdMob 등 리워드 광고 SDK + 서버 지급 검증으로 교체)
+- **만보기 구간보상**: 2,000/5,000/8,000/10,000보 각 +10pt (1일 최대 40pt)
+- **출석** +5 / **룰렛** 최대 20 / **보물상자** +1~5 / **퀴즈** 기사당 +5
+- **소비처**: 운영자 쿠폰 교환(600~2,500pt) / 추첨 응모(80~100pt) — 확정 교환은 비싸게,
+  추첨은 싸게(지급 비용이 확률로 캡핑되는 거지맵 구조)
+- **로그인 게이트**: 수령·사용은 닉네임 등록 필수(`AccountContext`). 익명 열람·투고는 유지.
+  서버 대응 후 LINE/Apple 로그인으로 승격 예정
+- 잔액·수령 이력은 AsyncStorage(단말 로컬). 실제 쿠폰 발권·추첨은 서버 대응 후
   (경품 제공은 일본 景品表示法 확인 필요)
 
 ### 만보기 플랫폼 차이 (MVP 한계)

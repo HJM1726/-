@@ -10,11 +10,13 @@ export interface StepMilestone {
   pt: number;
 }
 
+/* 지급 재원 원칙(참고앱 방식): 포인트는 광고·어필리에이트 수익의 분배.
+ * 무재원 지급(걷기·출석 등)은 소액으로 억제하고, 큰 지급은 広告視聴(AD_REWARD)에 묶는다. */
 export const STEP_MILESTONES: StepMilestone[] = [
-  { steps: 2000, pt: 30 },
-  { steps: 5000, pt: 30 },
-  { steps: 8000, pt: 30 },
-  { steps: 10000, pt: 30 },
+  { steps: 2000, pt: 10 },
+  { steps: 5000, pt: 10 },
+  { steps: 8000, pt: 10 },
+  { steps: 10000, pt: 10 },
 ];
 
 export const MAX_DAILY_STEP_POINTS = STEP_MILESTONES.reduce((sum, m) => sum + m.pt, 0);
@@ -39,9 +41,11 @@ export function nextMilestone(steps: number): StepMilestone | undefined {
 
 export const LOGIN_BONUS = 5; // 出席(1日1回)
 export const QUIZ_REWARD = 5; // 節約ガイドのクイズ正解(記事ごとに1回)
-export const ROULETTE_PRIZES = [5, 10, 15, 20, 30, 50]; // ルーレット(1日1回)
+export const ROULETTE_PRIZES = [3, 5, 8, 10, 15, 20]; // ルーレット(1日1回)
 export const CHEST_MIN = 1; // 宝箱(1日1回)
-export const CHEST_MAX = 10;
+export const CHEST_MAX = 5;
+export const AD_REWARD = 20; // 広告視聴1回あたり(広告収益と連動させる前提の値)
+export const AD_DAILY_CAP = 3; // 広告視聴の1日上限回数
 
 export function rollRoulette(rand: () => number = Math.random): number {
   const idx = Math.min(Math.floor(rand() * ROULETTE_PRIZES.length), ROULETTE_PRIZES.length - 1);
