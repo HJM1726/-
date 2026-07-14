@@ -29,6 +29,12 @@ const SpotMap = forwardRef<SpotMapHandle, SpotMapProps>(function SpotMap(
         400,
       );
     },
+    focusRegion(lat: number, lng: number) {
+      mapRef.current?.animateToRegion(
+        { latitude: lat, longitude: lng, latitudeDelta: 0.08, longitudeDelta: 0.08 },
+        500,
+      );
+    },
     async locateMe() {
       const perm = await Location.requestForegroundPermissionsAsync();
       if (perm.status !== "granted") return;

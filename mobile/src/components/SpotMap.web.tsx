@@ -65,6 +65,9 @@ const SpotMap = forwardRef<SpotMapHandle, SpotMapProps>(function SpotMap(
         animate: true,
       });
     },
+    focusRegion(lat: number, lng: number) {
+      mapRef.current?.setView([lat, lng], 13, { animate: true });
+    },
     async locateMe() {
       const map = mapRef.current;
       if (!map || !("geolocation" in navigator)) return;

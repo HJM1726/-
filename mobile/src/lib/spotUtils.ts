@@ -14,6 +14,7 @@ export interface SpotMapProps {
 
 export interface SpotMapHandle {
   focusSpot: (spot: Spot) => void;
+  focusRegion: (lat: number, lng: number) => void;
   locateMe: () => Promise<void>;
 }
 

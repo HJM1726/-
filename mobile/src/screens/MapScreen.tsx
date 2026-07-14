@@ -13,7 +13,7 @@ import {
 } from "react-native";
 import SpotMap, { SpotMapHandle } from "../components/SpotMap";
 import SpotDetailSheet from "../components/SpotDetailSheet";
-import { CATEGORIES, SAMPLE_SPOTS, categoryOf } from "../data/spots";
+import { CATEGORIES, REGIONS, SAMPLE_SPOTS, categoryOf } from "../data/spots";
 import { syncComment, syncRating, syncVote } from "../lib/socialRepo";
 import { fetchSpots, submitSpot } from "../lib/spotsRepo";
 import { getJSON, setJSON, KEYS } from "../lib/storage";
@@ -156,6 +156,15 @@ export default function MapScreen() {
       {/* フィルタ(チップ列。上のフローティングバーの下) */}
       <View style={styles.filterBar}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
+          {REGIONS.map((r) => (
+            <Chip
+              key={r.id}
+              label={`🏙 ${r.label}`}
+              active={false}
+              onPress={() => mapRef.current?.focusRegion(r.lat, r.lng)}
+            />
+          ))}
+          <View style={styles.chipDivider} />
           {PRICE_PRESETS.map((p) => (
             <Chip
               key={p.value}
