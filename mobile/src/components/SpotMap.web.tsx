@@ -26,6 +26,39 @@ const SpotMap = forwardRef<SpotMapHandle, SpotMapProps>(function SpotMap(
   const handlersRef = useRef({ onSelectSpot, onPickLocation, onMapPress });
   handlersRef.current = { onSelectSpot, onPickLocation, onMapPress };
 
+  const locationLayerRef = useRef<L.LayerGroup | null>(null);
+  const watchIdRef = useRef<number | null>(null);
+  const lastFixRef = useRef<{ lat: number; lng: number } | null>(null);
+
+  /* Googleマップ풍の現在地表示: 青いドット + 精度円 + 리얼타임 추적(watchPosition) */
+  function renderMyLocation(pos: GeolocationPosition, centerOnFix: boolean) {
+    const map = mapRef.current;
+    const layer = locationLayerRef.current;
+    if (!map || !layer) return;
+    const { latitude, longitude, accuracy } = pos.coords;
+    layer.clearLayers();
+    L.circle([latitude, longitude], {
+      radius: Math.max(accuracy, 15),
+      color: "#4285F4",
+      weight: 1,
+      opacity: 0.4,
+      fillColor: "#4285F4",
+      fillOpacity: 0.12,
+    }).addTo(layer);
+    L.marker([latitude, longitude], {
+      icon: L.divIcon({
+        className: "",
+        iconSize: [22, 22],
+        iconAnchor: [11, 11],
+        html: '<div class="binbo-myloc"><div class="binbo-myloc-pulse"></div></div>',
+      }),
+      interactive: false,
+      zIndexOffset: 1000,
+    }).addTo(layer);
+    if (centerOnFix) map.setView([latitude, longitude], Math.max(map.getZoom(), 16), { animate: true });
+    lastFixRef.current = { lat: latitude, lng: longitude };
+  }
+
   useImperativeHandle(ref, () => ({
     focusSpot(spot: Spot) {
       mapRef.current?.setView([spot.lat, spot.lng], Math.max(mapRef.current.getZoom(), 15), {
@@ -35,9 +68,24 @@ const SpotMap = forwardRef<SpotMapHandle, SpotMapProps>(function SpotMap(
     async locateMe() {
       const map = mapRef.current;
       if (!map || !("geolocation" in navigator)) return;
-      navigator.geolocation.getCurrentPosition((pos) => {
-        map.setView([pos.coords.latitude, pos.coords.longitude], 15, { animate: true });
-      });
+      // 2回目以降のタップは最後の位置へ再センタリング(Googleマップの挙動)
+      if (watchIdRef.current != null && lastFixRef.current) {
+        map.setView([lastFixRef.current.lat, lastFixRef.current.lng], Math.max(map.getZoom(), 16), {
+          animate: true,
+        });
+        return;
+      }
+      let firstFix = true;
+      watchIdRef.current = navigator.geolocation.watchPosition(
+        (pos) => {
+          renderMyLocation(pos, firstFix);
+          firstFix = false;
+        },
+        () => {
+          watchIdRef.current = null; // 拒否・失敗時は次のタップで再挑戦
+        },
+        { enableHighAccuracy: true, maximumAge: 5_000, timeout: 15_000 },
+      );
     },
   }));
 
@@ -57,11 +105,17 @@ const SpotMap = forwardRef<SpotMapHandle, SpotMapProps>(function SpotMap(
     });
     mapRef.current = map;
     markerLayerRef.current = L.layerGroup().addTo(map);
+    locationLayerRef.current = L.layerGroup().addTo(map);
+    injectMyLocationCss();
     return () => {
+      if (watchIdRef.current != null) navigator.geolocation.clearWatch(watchIdRef.current);
+      watchIdRef.current = null;
       map.remove();
       mapRef.current = null;
       markerLayerRef.current = null;
+      locationLayerRef.current = null;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -86,6 +140,34 @@ const SpotMap = forwardRef<SpotMapHandle, SpotMapProps>(function SpotMap(
 });
 
 export default SpotMap;
+
+/* Googleマップ풍 현재 위치 도트의 CSS(1回だけ注入) */
+let mylocCssInjected = false;
+function injectMyLocationCss() {
+  if (mylocCssInjected || typeof document === "undefined") return;
+  mylocCssInjected = true;
+  const style = document.createElement("style");
+  style.textContent = `
+    .binbo-myloc { width: 22px; height: 22px; position: relative; }
+    .binbo-myloc::after {
+      content: ""; position: absolute; inset: 4px; border-radius: 50%;
+      background: #4285F4; border: 3px solid #fff;
+      box-shadow: 0 1px 4px rgba(0,0,0,.4);
+    }
+    .binbo-myloc-pulse {
+      position: absolute; inset: 0; border-radius: 50%;
+      background: rgba(66,133,244,.35);
+      animation: binbo-myloc-pulse 2s ease-out infinite;
+    }
+    @keyframes binbo-myloc-pulse {
+      0% { transform: scale(.6); opacity: 1; }
+      100% { transform: scale(2.2); opacity: 0; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .binbo-myloc-pulse { animation: none; opacity: .35; }
+    }`;
+  document.head.appendChild(style);
+}
 
 /* 참고앱풍のピル型マーカー:絵文字 + 価格 + newバッジ */
 function spotPillIcon(spot: Spot): L.DivIcon {
