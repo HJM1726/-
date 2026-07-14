@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import {
   Linking,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -9,6 +10,7 @@ import {
   View,
 } from "react-native";
 import { categoryOf } from "../data/spots";
+import { reportContent } from "../lib/socialRepo";
 import { colors } from "../theme";
 import { Spot, SpotComment, VoteDir } from "../types";
 
@@ -38,7 +40,23 @@ export default function SpotDetailSheet({
   onClose,
 }: Props) {
   const [draft, setDraft] = useState("");
+  const [reported, setReported] = useState(false);
   const cat = categoryOf(spot.category);
+
+  /* 名誉毀損・誤情報対策: 通報導線(利用規約の運用に必須)。
+   * サーバーモードではreportsテーブルへ、ローカルモードでは受付表示のみ。 */
+  function report() {
+    if (reported) return;
+    const doReport = () => {
+      setReported(true);
+      void reportContent("spot", spot.id, "ユーザー通報(不適切・誤情報の疑い)");
+    };
+    if (Platform.OS === "web") {
+      if (window.confirm("このスポットを不適切・誤情報として通報しますか?")) doReport();
+    } else {
+      doReport();
+    }
+  }
 
   // サンプルの初期評価に自分の星を合成した平均
   const baseCount = spot.ratingCount ?? 0;
@@ -158,6 +176,12 @@ export default function SpotDetailSheet({
             </Pressable>
           </View>
         </View>
+
+        <Pressable onPress={report} disabled={reported} style={styles.reportBtn}>
+          <Text style={styles.reportText}>
+            {reported ? "✅ 通報を受け付けました。運営が確認します" : "⚠️ このスポットを通報する"}
+          </Text>
+        </Pressable>
       </ScrollView>
     </View>
   );
@@ -297,4 +321,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   sendBtnText: { color: "#fff", fontSize: 15 },
+  reportBtn: { alignItems: "center", marginTop: 16, paddingVertical: 6 },
+  reportText: { fontSize: 11, color: colors.textSub },
 });

@@ -37,13 +37,23 @@ npx expo export --platform web   # dist/ 생성 → 그대로 정적 호스팅�
 4. `mobile/.env.example`을 `mobile/.env`로 복사하고 Project Settings → API의
    URL과 anon key를 채움 → `npx expo start` 재시작
 
-서버 모드에서의 동작:
-- 지도는 **승인된(approved) 스팟만** 표시 (`spots_public` 뷰)
-- 투고는 `status=pending`으로 저장 → 대시보드 Table Editor에서 `approved`로 바꾸면 공개
-  (거지맵과 같은 승인제)
-- 투표/별점/댓글/마켓/추첨 테이블과 정책도 스키마에 준비되어 있고, 화면 연결은 다음 단계
-- 포인트는 잔액 컬럼이 아니라 **원장(points_ledger) 합산** 구조 — 부정 적립 검증을
-  Edge Function으로 넣기 위한 설계. 기프트코드 에스크로도 평문 저장 금지를 스키마에 명시
+서버 모드에서의 동작 (`schema.sql` + `schema_v2.sql` 적용):
+- 지도는 **승인된(approved) 스팟만** 표시, 투고는 `pending` → 승인 후 공개 (승인제)
+- **투표·별점·댓글·신고는 write-through** (`src/lib/socialRepo.ts`): 화면은 즉시 반영(낙관적),
+  서버 모드면 뒤에서 Supabase에 기록. 서버 실패해도 화면은 깨지지 않음
+- **쿠폰 교환·추첨 응모는 서버측 검증 함수** (`redeem_coupon()` / `enter_raffle()`):
+  잔액·재고·응모 상한을 DB 트랜잭션 안에서 원자적으로 검증 — 클라이언트 조작 불가
+- 포인트는 **원장(points_ledger) 합산** 구조. TODO: 걸음수·광고 적립도 서버 함수화
+- 신고(reports)는 운영자(service role)만 열람 가능 — 일반 유저 SELECT 정책 없음
+
+## 법무 문서
+
+- [`/docs/legal/terms.md`](../docs/legal/terms.md) 利用規約 드라프트 (포인트 무상성·양도 금지,
+  투고 승인제, 통보/삭제청구 절차, 금지행위 등)
+- [`/docs/legal/privacy.md`](../docs/legal/privacy.md) 프라이버시 폴리시 드라프트 (위치정보·걸음수
+  취급 명시)
+- **둘 다 변호사 리뷰 전 드라프트임이 문서 상단에 명시**되어 있음. 앱 내에는 상세시트의
+  통보 버튼 + 로그인 시 동의 문구로 연결
 
 ## 검증 명령
 
@@ -90,10 +100,14 @@ src/data/spots.ts           # 도쿄 샘플 스팟 15곳 (데모용 개략 좌�
 - 잔액·수령 이력은 AsyncStorage(단말 로컬). 실제 쿠폰 발권·추첨은 서버 대응 후
   (경품 제공은 일본 景品表示法 확인 필요)
 
-### 만보기 플랫폼 차이 (MVP 한계)
+### 만보기 플랫폼별 동작
 
-- **iOS**: HealthKit 경유 `getStepCountAsync`로 0시부터의 걸음수를 정확히 취득
-- **Android**: 조회 API가 없어 `watchStepCount`(구독 시점부터 증분)를 날짜별로 적산 → **앱 실행 중에만 계측됨**. 백그라운드 계측은 추후 Health Connect 연동으로 해결 예정
+- **iOS**: `getStepCountAsync`(모션 코프로세서 이력)로 0시부터의 걸음수 취득 — 백그라운드 분 포함
+- **Android (dev build)**: **Health Connect**(`react-native-health-connect`)로 OS가 상시 계측한
+  오늘 걸음수를 읽음 — 앱을 꺼놔도 집계됨(트리마와 동일 방식). `app.json`에 plugin +
+  `READ_STEPS` 권한 + minSdk 26 설정 완료. `npx expo prebuild` 후 `eas build`로 빌드
+- **Android (Expo Go)**: 네이티브 모듈이 없어 자동으로 기존 포그라운드 적산으로 폴백
+- 플랫폼 분기: `src/lib/stepsSource.ts`(기본) / `stepsSource.android.ts`(Metro가 자동 선택)
 
 ## 일본 보급 전략에 맞춘 설계 결정
 

@@ -47,7 +47,8 @@ export default function LoginModal({
             maxLength={12}
           />
           <Text style={styles.note}>
-            ※ MVP版はこの端末に登録されます。機種変更に備えたLINE/Appleログインはサーバー対応後に追加予定。
+            ※ MVP版はこの端末に登録されます。機種変更に備えたLINE/Appleログインはサーバー対応後に追加予定。{"\n"}
+            登録すると利用規約とプライバシーポリシーに同意したものとみなされます。
           </Text>
           <Pressable onPress={submit} style={styles.btnDark}>
             <Text style={styles.btnDarkText}>登録してはじめる</Text>

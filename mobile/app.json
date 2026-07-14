@@ -14,12 +14,17 @@
         "NSLocationWhenInUseUsageDescription": "現在地周辺の安いお店を表示するために使用します。"
       }
     },
+    "plugins": [
+      ["expo-build-properties", { "android": { "minSdkVersion": 26 } }],
+      "react-native-health-connect"
+    ],
     "android": {
       "package": "com.binbomap.app",
       "permissions": [
         "android.permission.ACTIVITY_RECOGNITION",
         "android.permission.ACCESS_COARSE_LOCATION",
-        "android.permission.ACCESS_FINE_LOCATION"
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.health.READ_STEPS"
       ],
       "config": {
         "googleMaps": {

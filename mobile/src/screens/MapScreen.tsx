@@ -14,6 +14,7 @@ import {
 import SpotMap, { SpotMapHandle } from "../components/SpotMap";
 import SpotDetailSheet from "../components/SpotDetailSheet";
 import { CATEGORIES, SAMPLE_SPOTS, categoryOf } from "../data/spots";
+import { syncComment, syncRating, syncVote } from "../lib/socialRepo";
 import { fetchSpots, submitSpot } from "../lib/spotsRepo";
 import { getJSON, setJSON, KEYS } from "../lib/storage";
 import { colors, priceColor } from "../theme";
@@ -77,6 +78,7 @@ export default function MapScreen() {
       if (next[spot.id] === dir) delete next[spot.id];
       else next[spot.id] = dir;
       void setJSON(KEYS.votes, next);
+      void syncVote(spot.id, next[spot.id] ?? null); // サーバーモード時はwrite-through
       return next;
     });
   }
@@ -87,6 +89,7 @@ export default function MapScreen() {
       if (next[spot.id] === stars) delete next[spot.id];
       else next[spot.id] = stars;
       void setJSON(KEYS.ratings, next);
+      void syncRating(spot.id, next[spot.id] ?? null);
       return next;
     });
   }
@@ -106,6 +109,7 @@ export default function MapScreen() {
       const entry: SpotComment = { id: "c" + Date.now(), text, at: Date.now() };
       const next: CommentMap = { ...prev, [spot.id]: [entry, ...(prev[spot.id] ?? [])] };
       void setJSON(KEYS.comments, next);
+      void syncComment(spot.id, text);
       return next;
     });
   }
