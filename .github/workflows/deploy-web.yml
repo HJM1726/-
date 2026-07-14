@@ -39,10 +39,6 @@ jobs:
       - name: Export web build
         working-directory: mobile
         run: CI=1 npx expo export --platform web
-      - name: Enable and configure GitHub Pages
-        uses: actions/configure-pages@v5
-        with:
-          enablement: true
       - uses: actions/upload-pages-artifact@v3
         with:
           path: mobile/dist
